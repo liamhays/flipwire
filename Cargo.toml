@@ -1,0 +1,21 @@
+[package]
+name = "flipwire"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+btleplug = "0.11.1"
+tokio = { version = "1.33.0", features = ["macros", "full"] }
+uuid = "1.4.1"
+protobuf = "3.3"
+futures = "0.3.28"
+clap = { version = "4.4.6", features = ["derive"] }
+log = "0.4"
+pretty_env_logger = "0.5"
+indicatif = "0.17.7"
+
+[build-dependencies]
+protobuf-codegen = "3.3"
+protoc-bin-vendored = "3.0"

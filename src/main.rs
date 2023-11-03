@@ -1,0 +1,199 @@
+// TODO: move away from protoc-bin-vendored
+
+// These are declared globally so that everything can use them,
+// especially `flipper_pb`.
+mod flipper_pb;
+mod flipper_ble;
+mod protobuf_codec;
+
+use std::path::PathBuf;
+use std::process;
+
+// We have to use tokio, even though it's big, because bluez-async relies on it.
+use tokio;
+use clap::{Parser, Subcommand};
+
+extern crate pretty_env_logger;
+#[macro_use] extern crate log;
+
+// other potential operations: set datetime, play AV alert, get screen frame, 
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Upload a local file to the Flipper
+    Upload {
+        /// Local file to upload
+        file: PathBuf,
+        /// Full Flipper path including filename to upload to
+        dest: String,
+    },
+    /// Download a file from the Flipper, saving it locally with the same name
+    Download {
+        /// Flipper file to download
+        file: String,
+        /// Destination path on computer
+        dest: PathBuf,
+    },
+    /// Upload `file` to `dest` and attempt to launch it
+    Ul {
+        /// Local file to upload
+        file: PathBuf,
+        /// Full Flipper path including filename to upload to
+        dest: String
+    },
+    /// Launch an app on the Flipper
+    Launch {
+        /// A full path ("/ext/apps/...") or the name of a built-in
+        /// app (i.e., "NFC")
+        app: String,
+    },
+    
+    /// Get a file listing of a directory on the Flipper
+    Ls {
+        #[arg(default_value="/ext")]
+        path: String,
+    },
+
+    /// Play an alert on the Flipper
+    Alert {
+
+    },
+}
+
+#[derive(Parser, Debug)]
+//#[command(author, version, about, long_about = None)] // read from Cargo.toml
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+    
+    /// Unique Flipper name (e.g., "Uwu2" for "Flipper Uwu2")
+    #[arg(short)]
+    flipper_name: String,
+
+    /// Disconnect from Flipper on exit
+    #[arg(short)]
+    disconnect: bool,
+}
+// prints a &[u8] in a style very similar to a Python bytearray
+// from https://stackoverflow.com/a/41450295
+//use std::ascii::escape_default;
+/*fn show(bs: &[u8]) -> String {
+    let mut visible = String::new();
+    for &b in bs {
+        let part: Vec<u8> = escape_default(b).collect();
+        visible.push_str(std::str::from_utf8(&part).unwrap());
+    }
+    visible
+}*/
+
+// Most of the work (including printing things like status and
+// progress bars) is done by flipper_ble.
+#[tokio::main]
+async fn main() {
+    // default to info level
+    //pretty_env_logger::formatted_builder().filter_level(log::LevelFilter::Info).init();
+    pretty_env_logger::init();
+    debug!("start frl");
+
+    let cli = Cli::parse();
+    
+    // All commands need a connected Flipper, so we start with that.
+    let mut flipper =
+        match flipper_ble::FlipperBle::connect_paired_device(&cli.flipper_name).await {
+            Ok(d) => d,
+            Err(e) => {
+                error!("error finding Flipper {}: {}", cli.flipper_name, e);
+                
+                // process::exit() returns ! so it's compatible here
+                process::exit(1)
+            },
+        };
+
+    match &cli.command {
+        Commands::Ls { path } => {
+            match flipper.list(path).await {
+                Ok(()) => {
+
+                },
+                Err(e) => {
+                    error!("failed to list path: {}", e);
+                }
+            };
+        },
+        
+        Commands::Launch { app } => {
+            match flipper.launch(app).await {
+                Ok(()) => {
+                    info!("launched app successfully");
+                },
+                Err(e) => {
+                    error!("failed to launch app {:?}: {}", app, e);
+                }
+            };
+        },
+        
+        Commands::Download { file, dest } => {
+            match flipper.download_file(file, dest).await {
+                Ok(()) => {
+                    info!("downloaded file successfully");
+                },
+                Err(e) => {
+                    error!("failed to download file {:?}: {}", file, e);
+                }
+            };
+        },
+        
+        Commands::Upload { file, dest } => {
+            match flipper.upload_file(file, dest).await {
+                Ok(()) => {
+                    info!("sent file successfully");
+                },
+                Err(e) => {
+                    error!("failed to send file: {}", e);
+                }
+            };
+        },
+        Commands::Ul { file, dest } => {
+            // TODO: notification stream or something to get status
+            // updates as each chunk is sent
+            match flipper.upload_file(file, dest).await {
+                Ok(()) => {
+                    info!("sent file successfully");
+                },
+                Err(e) => {
+                    error!("failed to send file: {}", e);
+                }
+            };
+
+            match flipper.launch(dest).await {
+                Ok(()) => {
+                    info!("file started!");
+                },
+                Err(e) => {
+                    error!("failed to launch app: {}", e);
+                }
+            };
+        },
+        Commands::Alert {} => {
+            match flipper.alert().await {
+                Ok(()) => {
+                    info!("alert sent!");
+                },
+                Err(e) => {
+                    error!("failed to send alert: {}", e);
+                },
+            };
+        },
+    }
+    
+    // disconnect if specified
+    if cli.disconnect {
+        info!("disconnecting");
+        match flipper.disconnect().await {
+            Ok(()) => {},
+            Err(e) => {
+                error!("failed to disconnect from Flipper: {}", e);
+            }
+        }
+    }
+}
+
