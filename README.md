@@ -11,8 +11,7 @@ would like to be a macOS tester, open an issue.
 
 # Usage
 Flipwire will attempt to connect to your Flipper before any
-operation. Pair your Flipper to your computer **before** using
-Flipwire.
+operation. Your Flipper **must** already be paired to your computer.
 
 Run `flipwire` with no arguments to see the built-in help. Command
 line usage is basically:
@@ -39,7 +38,6 @@ Commands:
 - `ls <dir>`: list a directory on the Flipper.
 - `alert`: play an alert on the Flipper to help you find it.
 
-TODO: path issue things
 
 # Adapter Incompatibility
 In RPC mode, the Flipper's Bluetooth implementation exhibits strange
@@ -86,8 +84,9 @@ If you think you've discovered a bug, post some output and a
 description of the problem in a new issue.
 
 # Contributing
-As mentioned above, I need a macOS tester to really have
-cross-platform support.
+Like Flipwire? Leave me a star!
+
+I need a macOS tester to have real cross-platform support.
 
 If you have feature requests, bugs to report, or code to add, open an
 issue or pull request.
