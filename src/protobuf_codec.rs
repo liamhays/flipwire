@@ -48,7 +48,7 @@ impl ProtobufCodec {
     /// # Arguments
     ///
     /// * `path`: Full Flipper path or builtin app name to launch.
-    pub fn create_launch_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub fn create_launch_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut launch_request = flipper_pb::application::StartRequest::default();
         // builtin apps can be launched by name, external ones need a full path
         launch_request.name = path.to_string();
@@ -69,7 +69,7 @@ impl ProtobufCodec {
     /// Returns a Vec<u8> containing an encoded StorageListRequest
     /// protobuf packet for a specific path to send to the Flipper, or
     /// an error if encoding failed. The path must be less than PROTOBUF_CHUNK_SIZE.
-    pub fn create_list_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub fn create_list_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut list_request = flipper_pb::storage::ListRequest::default();
         list_request.path = path.to_string();
 
@@ -91,14 +91,20 @@ impl ProtobufCodec {
     ///
     /// * `file`: Input file to send to the Flipper
     /// * `destpath`: Destination Flipper path, must be a complete path including filename
-    pub fn create_storage_write_packets(
+    ///
+    /// # Returns
+    ///
+    /// * Vec<usize> of the number of _file bytes_ in the corresponding packet
+    /// * Vec<Vec<u8>> of packets
+    pub fn create_write_request_packets(
         &mut self,
         file: &Path,
-        destpath: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
+        destpath: &str) -> Result<(Vec<usize>, Vec<Vec<u8>>), Box<dyn Error>> {
         
         let file_contents = fs::read(file)?;
         let mut packet_stream = Vec::new();
 
+        let mut chunk_sizes = Vec::new();
         // Every packet is the same, a WriteRequest, and the Flipper knows
         // if we have more data to send via the has_next flag.
         for index in (0..file_contents.len()).step_by(PROTOBUF_CHUNK_SIZE) {
@@ -133,16 +139,17 @@ impl ProtobufCodec {
             packet.write_length_delimited_to_vec(&mut packet_vec)?;
             packet_stream.push(packet_vec);
 
+            chunk_sizes.push(chunk.len());
         }
         // The command ID only increments after every complete
         // command. The packet stream is a series of protobuf commands
         // that represent a single command, so we increment it after
         // we make all the packets.
         self.command_id += 1;
-        Ok(packet_stream)
+        Ok((chunk_sizes, packet_stream))
     }
 
-    pub fn create_storage_read_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub fn create_read_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut read_request = flipper_pb::storage::ReadRequest::default();
         read_request.path = path.to_string();
 
@@ -156,7 +163,7 @@ impl ProtobufCodec {
         Ok(final_vec)
     }
 
-    pub fn create_storage_stat_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub fn create_stat_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut stat_request = flipper_pb::storage::StatRequest::default();
         stat_request.path = path.to_string();
 
@@ -169,7 +176,7 @@ impl ProtobufCodec {
 
         Ok(final_vec)
     }
-    pub fn create_av_alert_packet(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub fn create_alert_request_packet(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut final_msg = self.new_blank_packet(true);
         // we can combine this because PlayAudiovisualAlertRequest has no fields
         final_msg.content = Some(
