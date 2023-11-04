@@ -8,6 +8,7 @@ mod protobuf_codec;
 
 use std::path::PathBuf;
 use std::process;
+use std::env;
 
 // We have to use tokio, even though it's big, because bluez-async relies on it.
 use tokio;
@@ -73,24 +74,18 @@ struct Cli {
     #[arg(short)]
     disconnect: bool,
 }
-// prints a &[u8] in a style very similar to a Python bytearray
-// from https://stackoverflow.com/a/41450295
-//use std::ascii::escape_default;
-/*fn show(bs: &[u8]) -> String {
-    let mut visible = String::new();
-    for &b in bs {
-        let part: Vec<u8> = escape_default(b).collect();
-        visible.push_str(std::str::from_utf8(&part).unwrap());
-    }
-    visible
-}*/
+
 
 // Most of the work (including printing things like status and
 // progress bars) is done by flipper_ble.
 #[tokio::main]
 async fn main() {
-    // default to info level
-    //pretty_env_logger::formatted_builder().filter_level(log::LevelFilter::Info).init();
+    // pls don't judge
+    // info log level is useful and I use it for most of the status messages
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "info");
+    }
+
     pretty_env_logger::init();
     debug!("start frl");
 
