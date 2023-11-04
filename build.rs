@@ -1,12 +1,10 @@
-//use prost_build;
-    
 fn main() {
-    // Use this in build.rs
+    // Generate Rust code from the protobuf declarations
     protobuf_codegen::Codegen::new()
     // Use `protoc` parser, optional.
         .protoc()
-    // Use `protoc-bin-vendored` bundled protoc command, optional.
-        .protoc_path(&protoc_bin_vendored::protoc_bin_path().unwrap())
+    // Use system `protoc` instead of bloated `protoc-bin-vendored` crate.
+
     // All inputs and imports from the inputs must reside in `includes` directories.
         .includes(&["flipperzero-protobuf"])
     // Inputs must reside in some of include paths.

@@ -18,4 +18,3 @@ indicatif = "0.17.7"
 
 [build-dependencies]
 protobuf-codegen = "3.3"
-protoc-bin-vendored = "3.0"

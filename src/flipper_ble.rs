@@ -17,10 +17,6 @@ use std::convert::TryFrom;
 use crate::flipper_pb;
 use crate::protobuf_codec::{PROTOBUF_CHUNK_SIZE, ProtobufCodec};
 
-// Known working adapters:
-// - Cambridge Silicon BLE dongle
-// - AzureWave AW-CM256SM (based on CYW43455, found on the Quartz64 Model B)
-// - 
 // the uuid that we write to
 const FLIPPER_RX_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e62fe0000");
 // the uuid that we read from
