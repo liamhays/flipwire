@@ -182,7 +182,7 @@ async fn main() {
     
     // disconnect if specified
     if cli.disconnect {
-        info!("disconnecting");
+        debug!("disconnecting");
         match flipper.disconnect().await {
             Ok(()) => {},
             Err(e) => {

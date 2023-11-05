@@ -269,6 +269,13 @@ impl FlipperBle {
                             r)) = m.1.content {
                             debug!("received file size: {:?}", r.file.size);
                             break r.file.size;
+                        } else if let Some(flipper_pb::flipper::main::Content::Empty(_)) = m.1.content {
+                            // Flipper returns Empty { } when the path is bad
+                            debug!("received empty response (bad path)");
+                            return Err("Invalid Flipper path! Check that the path is correct.".into());
+                        } else {
+                            error!("received unexpected protobuf response: {:?}", m.1.content);
+                            return Err("".into());
                         }
                     },
                     Err(e) => {
@@ -342,14 +349,17 @@ impl FlipperBle {
         debug!("encoded launch request: {:?}", format_u8_slice(&launch_packet));
         self.flipper.write(&rx_chr, &launch_packet, WriteType::WithoutResponse).await?;
 
+        // we're expecting just an Ok or something similarly short, so we don't need the loop
         let response = self.flipper.read(&tx_chr).await?;
         let pb_response = ProtobufCodec::parse_response(&response)?;
         debug!("response received: {:?}", pb_response);
 
         if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::OK.into() {
             Ok(())
+        } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_INVALID_PARAMETERS.into() {
+            Err("Application path is invalid!".into())
         } else {
-            Err(format!("Flipper returned error: {:?}", response[1]).into())
+            Err(format!("Flipper returned unexpected response: {:?}", pb_response).into())
         }
     }
 
@@ -396,6 +406,12 @@ impl FlipperBle {
                             if m.1.has_next == false {
                                 break;
                             };
+                        } else if let Some(flipper_pb::flipper::main::Content::Empty(_)) = m.1.content {
+                            debug!("received empty response (bad path)");
+                            return Err("Invalid Flipper path! Check that the path is correct.".into());
+                        } else {
+                            error!("received unexpected protobuf response: {:?}", m.1.content);
+                            return Err("".into());
                         }
                         full_protobuf.clear();
                     },
