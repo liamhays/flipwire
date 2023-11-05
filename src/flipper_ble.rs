@@ -1,6 +1,6 @@
 use futures::StreamExt;
 use futures::FutureExt;
-use btleplug::api::{Central, Manager as _, Peripheral as _, WriteType, Characteristic};
+use btleplug::api::{Central, Manager as _, Peripheral as _, WriteType, Characteristic, ScanFilter};
 use btleplug::platform::{Manager, Peripheral, Adapter};
 use tokio;
 use tokio::time;
@@ -16,6 +16,9 @@ use std::convert::TryFrom;
 
 use crate::flipper_pb;
 use crate::protobuf_codec::{PROTOBUF_CHUNK_SIZE, ProtobufCodec};
+
+// Flipper serial service uuid, used for the scanfilter
+const FLIPPER_UART_SVC_UUID: Uuid = uuid!("8fe5b3d5-2e7f-4a98-2a48-7acc60fe0000");
 
 // the uuid that we write to
 const FLIPPER_RX_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e62fe0000");
@@ -43,6 +46,17 @@ fn format_u8_slice(bs: &[u8]) -> String {
 }
 
 impl FlipperBle {
+    async fn flipper_scan(central: &Adapter) -> Result<(), Box<dyn Error>> {
+        let mut filter = ScanFilter::default();
+        filter.services = vec![FLIPPER_UART_SVC_UUID];
+        
+        central.start_scan(filter).await?;
+        // TODO: event stream?
+        time::sleep(Duration::from_millis(2000)).await;
+        central.stop_scan().await?;
+        Ok(())
+    }
+    
     async fn find_device_named(flipper_name: &str, central: &Adapter) -> Option<Peripheral> {
         for p in central.peripherals().await.unwrap() {
             if p.properties()
@@ -52,7 +66,8 @@ impl FlipperBle {
                 .local_name
                 .iter()
                 .any(|name| name.contains(flipper_name)) {
-                    info!("Flipper device found: {:?}", p);
+                    info!("found Flipper {}", flipper_name);
+                    debug!("peripheral details: {:?}", p);
                     return Some(p);
                 }
         }
@@ -81,8 +96,17 @@ impl FlipperBle {
                 return Err(format!("error finding Bluetooth adapters: {:?}", e).into());
             },
         };
+
+        debug!("using adapter {:?}", central);
+        debug!("adapter info: {:?}", central.adapter_info().await?);
+
+        // Linux remembers devices that have been paired and can try
+        // to connect to them without scanning. Windows needs to scan,
+        // and this delay might not be right for every device.
         
-        debug!("Using adapter {:?}", central);
+        #[cfg(target_os = "windows")]
+        FlipperBle::flipper_scan(&central).await?;
+        
         // The Flipper must be paired already
         let flip =
             if let Some(d) = Self::find_device_named(flipper_name, &central).await {
@@ -252,6 +276,7 @@ impl FlipperBle {
         // protobuf message.
         self.flipper.subscribe(&tx_chr).await?;
 
+        // Do a stat request so that we can get the size of the file
         let mut stream = self.flipper.notifications().await?;
         let stat_request = self.proto.create_stat_request_packet(&path)?;
 
@@ -285,6 +310,7 @@ impl FlipperBle {
             }
         };
 
+        // now read the contents of the file
         let read_request = self.proto.create_read_request_packet(path)?;
         
         self.flipper.write(&rx_chr, &read_request, WriteType::WithResponse).await?;
@@ -425,7 +451,7 @@ impl FlipperBle {
         // process into dirs and files, and sort by name
         let mut dirs = Vec::new();
         let mut files = Vec::new();
-        info!("Flipper files at {:?}:", path);
+        info!("files at Flipper path {:?}:", path);
         for f in entries {
             if f.type_ == flipper_pb::storage::file::FileType::DIR.into() {
                 dirs.push(f);
