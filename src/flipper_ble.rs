@@ -1,6 +1,6 @@
 use futures::StreamExt;
 use futures::FutureExt;
-use btleplug::api::{Central, Manager as _, Peripheral as _, WriteType, Characteristic, ScanFilter};
+use btleplug::api::{Central, Manager as _, Peripheral as _, WriteType, Characteristic};
 use btleplug::platform::{Manager, Peripheral, Adapter};
 use tokio;
 use tokio::time;
@@ -16,9 +16,6 @@ use std::convert::TryFrom;
 
 use crate::flipper_pb;
 use crate::protobuf_codec::{PROTOBUF_CHUNK_SIZE, ProtobufCodec};
-
-// Flipper serial service uuid, used for the scanfilter
-const FLIPPER_UART_SVC_UUID: Uuid = uuid!("8fe5b3d5-2e7f-4a98-2a48-7acc60fe0000");
 
 // the uuid that we write to
 const FLIPPER_RX_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e62fe0000");
@@ -46,13 +43,17 @@ fn format_u8_slice(bs: &[u8]) -> String {
 }
 
 impl FlipperBle {
+    #[cfg(target_os = "windows")]
     async fn flipper_scan(central: &Adapter) -> Result<(), Box<dyn Error>> {
-        let mut filter = ScanFilter::default();
-        filter.services = vec![FLIPPER_UART_SVC_UUID];
-        
-        central.start_scan(filter).await?;
-        // TODO: event stream?
-        time::sleep(Duration::from_millis(2000)).await;
+        // Flipper doesn't advertise the serial service, so we just
+        // scan. 5 seconds works on an Intel 3165, may need testing on
+        // other cards.
+        central.start_scan(ScanFilter::default()).await?;
+        // The event stream probably isn't useful because it only
+        // shows MAC address, and if we don't know it already, that's
+        // not useful.
+        time::sleep(Duration::from_millis(5000)).await;
+        // stop scanning to connect
         central.stop_scan().await?;
         Ok(())
     }
