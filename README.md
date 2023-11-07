@@ -49,6 +49,10 @@ disconnect while it's sending data with disconnect reason `0x08`
 upload files and run small commands fine, but you can't download files
 from the Flipper.
 
+If your adapter doesn't work, Flipwire will hang when it tries to
+download a file, because it's waiting for more data from a
+disconnected device.
+
 I *believe* that this is the fault of the core2 coprocessor on the
 STM32WB55, since the Intel adapters work with every other device.
 
