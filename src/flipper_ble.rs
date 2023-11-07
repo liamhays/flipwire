@@ -8,6 +8,9 @@ use tokio::time::Duration;
 use uuid::{uuid, Uuid};
 use indicatif::{ProgressBar, ProgressStyle};
 
+#[cfg(target_os = "windows")]
+use btleplug::api::ScanFilter;
+
 use std::fs;
 use std::io::Write;
 use std::path::Path;
