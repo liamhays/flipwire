@@ -1,5 +1,3 @@
-**Hi! If you came across this repo by chance and are reading this sentence, be aware some of the information below might be inaccurate.**
-
 # flipwire - Cross-Platform Bluetooth Flipper Control
 
 ![demo GIF of Flipwire](docs/demo.gif)
