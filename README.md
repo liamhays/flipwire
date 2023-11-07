@@ -10,11 +10,12 @@ command-line tool.
 
 I am currently only providing Linux and Windows builds of Flipwire,
 because I don't have a macOS machine to build and test on. If you
-would like to be a macOS tester, open an issue.
+would like to be a macOS tester, let me know by opening an issue.
 
 # Usage
 Flipwire will attempt to connect to your Flipper before any
-operation. Pair your Flipper to your computer before using Flipwire.
+operation. Pair your Flipper to your computer before using Flipwire so
+that they can find each other.
 
 Run `flipwire` with no arguments to see the built-in help. Command
 line usage is basically:
