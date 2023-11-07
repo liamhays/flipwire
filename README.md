@@ -1,6 +1,9 @@
 **Hi! If you came across this repo by chance and are reading this sentence, be aware some of the information below might be inaccurate.**
 
 # flipwire - Cross-Platform Bluetooth Flipper Control
+
+![demo GIF of Flipwire](docs/demo.gif)
+
 Flipwire lets you control your Flipper Zero from any computer over
 Bluetooth just like the mobile app. Flipwire is currently only a
 command-line tool.
@@ -11,7 +14,7 @@ would like to be a macOS tester, open an issue.
 
 # Usage
 Flipwire will attempt to connect to your Flipper before any
-operation. Your Flipper **must** already be paired to your computer.
+operation. Pair your Flipper to your computer before using Flipwire.
 
 Run `flipwire` with no arguments to see the built-in help. Command
 line usage is basically:
@@ -43,7 +46,9 @@ Commands:
 In RPC mode, the Flipper's Bluetooth implementation exhibits strange
 compatibility issues with Intel Bluetooth adapters: the Flipper will
 disconnect while it's sending data with disconnect reason `0x08`
-(connection supervision timeout reached).
+(connection supervision timeout reached). This means that you can
+upload files and run small commands fine, but you can't download files
+from the Flipper.
 
 I *believe* that this is the fault of the core2 coprocessor on the
 STM32WB55, since the Intel adapters work with every other device.
@@ -55,8 +60,8 @@ STM32WB55, since the Intel adapters work with every other device.
 ## Known working adapters
 - Qualcomm Atheros QCA6174
 - Cambridge Silicon external USB adapter
-- AzureWave AW-CM256SM (using CYW43455, found on the Quartz64 Model B)
-- Broadcom BCM4345/6 (found on Raspberry Pi 4)
+- Cypress CYW43455 (Pi 4 and Quartz64 Model B)
+- Cypress CYW43438 (Pi 3)
 
 # FAQ
 ## Why "flipwire"?
@@ -75,13 +80,14 @@ application that does exactly that.
 - Unpair the Flipper from your computer and pair it again.
 - Unpair all devices from the Flipper (`Settings->Bluetooth->Forget
   All Paired Devices`) and pair it to your computer again.
-- Run Flipwire with the `RUST_LOG` environment variable set to `debug`
-  to see if anything odd is happening.
+- Run Flipwire with the `RUST_LOG=debug` environment variable to see
+  if anything odd is happening.
 - By now, you have spent more time fixing Bluetooth than it would have
-  taken you to grab a USB-C cable and use qFlipper.
+  taken you to grab a USB-C cable and use qFlipper. Use qFlipper or
+  your phone and copy files from there.
   
-If you think you've discovered a bug, post some output and a
-description of the problem in a new issue.
+If you think you've discovered a bug, create a new issue with some
+output with `RUST_LOG=debug` and a description of the problem.
 
 # Contributing
 Like Flipwire? Leave me a star!

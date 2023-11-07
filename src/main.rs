@@ -27,14 +27,14 @@ enum Commands {
         /// Full Flipper path including filename to upload to
         dest: String,
     },
-    /// Download a file from the Flipper, saving it locally with the same name
+    /// Download a file from the Flipper
     Download {
         /// Flipper file to download
         file: String,
         /// Destination path on computer
         dest: PathBuf,
     },
-    /// Upload `file` to `dest` and attempt to launch it
+    /// Upload a file to the Flipper and attempt to launch it as an app
     Ul {
         /// Local file to upload
         file: PathBuf,
@@ -48,7 +48,7 @@ enum Commands {
         app: String,
     },
     
-    /// Get a file listing of a directory on the Flipper
+    /// Get a file listing of a Flipper directory
     Ls {
         #[arg(default_value="/ext")]
         path: String,

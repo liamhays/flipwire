@@ -103,7 +103,7 @@ impl FlipperBle {
 
         // Linux remembers devices that have been paired and can try
         // to connect to them without scanning. Windows needs to scan,
-        // and this delay might not be right for every device.
+        // and the delay we have may not be long enough for every adapter.
         
         #[cfg(target_os = "windows")]
         FlipperBle::flipper_scan(&central).await?;
@@ -477,6 +477,7 @@ impl FlipperBle {
         Ok(())
     }
 
+    /// Play the AV alert on the Flipper to help you find it.
     pub async fn alert(&mut self) -> Result<(), Box<dyn Error>> {
         let rx_chr = self.get_rx_chr();
 

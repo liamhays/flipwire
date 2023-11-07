@@ -22,7 +22,6 @@ pub struct ProtobufCodec {
 }
 #[allow(dead_code)]
 impl ProtobufCodec {
-
     pub fn new() -> ProtobufCodec {
         ProtobufCodec {
             command_id: 0
