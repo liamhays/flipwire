@@ -104,41 +104,63 @@ impl ProtobufCodec {
         let mut packet_stream = Vec::new();
 
         let mut chunk_sizes = Vec::new();
-        // Every packet is the same, a WriteRequest, and the Flipper knows
-        // if we have more data to send via the has_next flag.
-        for index in (0..file_contents.len()).step_by(PROTOBUF_CHUNK_SIZE) {
-            let chunk = if index + PROTOBUF_CHUNK_SIZE < file_contents.len() {
-                &file_contents[index..index+PROTOBUF_CHUNK_SIZE]
-            } else {
-                &file_contents[index..]
-            };
-            
-            // make a write request packet
+
+        // Workaround: an empty file will cause the loop to never
+        // run. There's no easy "always iterate at least once" wrapper
+        // for an iterator, so we do this instead.
+        if file_contents.len() == 0 {
+            debug!("creating packets for empty file");
             let mut write_request = flipper_pb::storage::WriteRequest::default();
             write_request.path = destpath.to_string();
-            // You have to use MessageField::some() to write to the `file` field.
-            // There are other fields in the File struct but we don't
-            // need to worry about them.
-            let mut f = flipper_pb::storage::File::new();
-            f.data = chunk.to_vec();
-            write_request.file = MessageField::some(f);
-
-            // only increment the packet when we finish the full command
+            // no data to write here
+            
             let mut packet = self.new_blank_packet(false);
             packet.content = Some(flipper_pb::flipper::main::Content::StorageWriteRequest(write_request));
-            
-            if index + PROTOBUF_CHUNK_SIZE < file_contents.len() {
-                // has_next = true because we still have more data
-                packet.has_next = true;
-            } else {
-                packet.has_next = false;
-            }
-            
+            packet.has_next = false;
+
             let mut packet_vec = Vec::new();
             packet.write_length_delimited_to_vec(&mut packet_vec)?;
             packet_stream.push(packet_vec);
 
-            chunk_sizes.push(chunk.len());
+            // chunk size is 0
+            chunk_sizes.push(0);
+        } else {
+            // Every packet is the same, a WriteRequest, and the Flipper knows
+            // if we have more data to send via the has_next flag.
+            for index in (0..file_contents.len()).step_by(PROTOBUF_CHUNK_SIZE) {
+                let chunk = if index + PROTOBUF_CHUNK_SIZE < file_contents.len() {
+                    &file_contents[index..index+PROTOBUF_CHUNK_SIZE]
+                } else {
+                    &file_contents[index..]
+                };
+                
+                // make a write request packet
+                let mut write_request = flipper_pb::storage::WriteRequest::default();
+                write_request.path = destpath.to_string();
+                // You have to use MessageField::some() to write to the `file` field.
+                // There are other fields in the File struct but we don't
+                // need to worry about them.
+                let mut f = flipper_pb::storage::File::new();
+                f.data = chunk.to_vec();
+                write_request.file = MessageField::some(f);
+
+                // only increment the packet when we finish the full command
+                let mut packet = self.new_blank_packet(false);
+                packet.content = Some(flipper_pb::flipper::main::Content::StorageWriteRequest(write_request));
+                
+                if index + PROTOBUF_CHUNK_SIZE < file_contents.len() {
+                    // has_next = true because we still have more data
+                    packet.has_next = true;
+                } else {
+                    packet.has_next = false;
+                }
+                
+                let mut packet_vec = Vec::new();
+                packet.write_length_delimited_to_vec(&mut packet_vec)?;
+                packet_stream.push(packet_vec);
+
+                chunk_sizes.push(chunk.len());
+            }
         }
         // The command ID only increments after every complete
         // command. The packet stream is a series of protobuf commands
