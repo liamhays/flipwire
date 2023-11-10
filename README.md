@@ -40,31 +40,17 @@ Commands:
 - `ls <dir>`: list a directory on the Flipper.
 - `alert`: play an alert on the Flipper to help you find it.
 
+## Flipper paths
+The Flipper uses a Unix-style path system to specify paths in internal
+and external storage. Most likely you want to interact with external
+storage (the SD card), which the Flipper sees at `/ext`. `/ext` is
+also the directory you browse when you use the Browser tool on the
+Flipper itself.
 
-# Adapter Incompatibility
-In RPC mode, the Flipper's Bluetooth implementation exhibits strange
-compatibility issues with Intel Bluetooth adapters: the Flipper will
-disconnect while it's sending data with disconnect reason `0x08`
-(connection supervision timeout reached). This means that you can
-upload files and run small commands fine, but you can't download files
-from the Flipper.
+Example paths:
 
-If your adapter doesn't work, Flipwire will hang when it tries to
-download a file, because it's waiting for more data from a
-disconnected device.
-
-I *believe* that this is the fault of the core2 coprocessor on the
-STM32WB55, since the Intel adapters work with every other device.
-
-## Known broken adapters
-- Intel Wireless 7265 (tested on Linux)
-- Intel Wireless 3165 (tested on Windows)
-
-## Known working adapters
-- Qualcomm Atheros QCA6174
-- Cambridge Silicon external USB adapter
-- Cypress CYW43455 (Pi 4 and Quartz64 Model B)
-- Cypress CYW43438 (Pi 3)
+- `/ext/apps/NFC/nfc.fap`: the FAP (external application) file for the NFC app
+- `/ext/infrared`: the directory where IR files are saved
 
 # FAQ
 ## Why "flipwire"?
@@ -76,8 +62,22 @@ Because I like Rust. Also, because the Flipper ecosystem has a strong
 "plug and play" mentality, and Rust makes it easy to make an
 application that does exactly that.
 
+## Flipwire hangs during a download.
+Run through the troubleshooting steps below just in case some has
+temporarily broken. If the issue still happens, then your Bluetooth
+adapter is probably incompatible with the Flipper. Report your adapter
+model in a new issue and I'll add it to the list above.
+
 # Troubleshooting
-- Make sure the Flipper is already paired to your computer.
+Some common problems include Flipwire not finding the Flipper or
+returning an error.
+
+- Make sure the Flipper is already paired to your computer. 
+
+Note that on Linux, you might need to use `bluetoothctl` instead of
+your desktop environment's Bluetooth tool. For example, the KDE
+Bluetooth tool refuses to pair to the Flipper.
+	
 - Turn Bluetooth on the Flipper off and on again.
 - Turn Bluetooth on your computer off and on again.
 - Unpair the Flipper from your computer and pair it again.
@@ -85,24 +85,73 @@ application that does exactly that.
   All Paired Devices`) and pair it to your computer again.
 - Run Flipwire with the `RUST_LOG=debug` environment variable to see
   if anything odd is happening.
-- By now, you have spent more time fixing Bluetooth than it would have
-  taken you to grab a USB-C cable and use qFlipper. Use qFlipper or
-  your phone and copy files from there.
+- On Linux, restart the Bluetooth service with `sudo systemctl restart
+  bluetooth` (or the equivalent if you're not on systemd). 
   
-If you think you've discovered a bug, create a new issue with some
-output with `RUST_LOG=debug` and a description of the problem.
+This can fix issues like `Error finding Flipper Uwuw2: le-connection-abort-by-local`.
+
+- If it's still not working, you've probably discovered a bug. Create
+  a new issue with some output with `RUST_LOG=debug` and a description
+  of the problem.
+
+Please note that I will only support Flipwire when used with Flippers
+running official firmware.
+
+# Adapter Incompatibility
+In RPC mode, the Flipper's Bluetooth implementation exhibits strange
+compatibility issues with Stone Peak series Intel Bluetooth adapters:
+the Flipper will disconnect while it's sending data with disconnect
+reason `0x08` (connection supervision timeout reached). This means
+that you can upload files, run small commands, and download small
+files without problems, but you can't download files bigger than about
+5 kB before the Flipper disconnects.
+
+If your adapter doesn't work, Flipwire will hang when it tries to
+download a file, because it's waiting for more data from a
+disconnected device. I *believe* that this is the fault of the core2
+coprocessor on the STM32WB55, since the Intel adapters work with every
+other device.
+
+## Broken adapters
+These are the two models in the Intel Stone Peak series. There are
+several models of the 7265, but I've only tested the 802.11ac version
+of the 7265. However, given that both the 7265 and 3165 have the
+Bluetooth issue, I suspect it's common to the whole series.
+
+- Intel Wireless 7265
+- Intel Wireless 3165
+
+I tested the 7265 on Linux and the 3165 on Windows and Linux. Whatever
+the problem is, it's independent of OS on both the 3165 and 7265. The
+Intel 8265 works (see below), so I think this is specific to Stone
+Peak.
+
+## Tested working adapters
+- Intel Wireless 8265
+- Intel AX200
+- Intel AX201
+- Intel AX211
+- Qualcomm Atheros QCA6174
+- Cypress CYW43455 (on the Pi 4 and Quartz64 Model B)
+- Cypress CYW43438 (on the Pi 3)
+- Broadcom BCM20702A0 external USB adapter
+- Cambridge Silicon external USB adapter
 
 # Contributing
 Like Flipwire? Leave me a star!
 
-I need a macOS tester to have real cross-platform support.
+I need a macOS tester to have real cross-platform support. I've done a
+little bit of macOS testing, and the system Bluetooth scanner wouldn't
+find my Flipper.
 
 If you have feature requests, bugs to report, or code to add, open an
 issue or pull request.
 
 # Building
-Make sure you have `protoc`, the protobuf compiler, installed and in
-your PATH. Clone the Flipwire repo and submodules, and run `cargo build`:
+Make sure you have `protoc`, the [protobuf
+compiler](https://github.com/protocolbuffers/protobuf#protobuf-compiler-installation),
+installed and in your PATH. Clone the Flipwire repo and submodules,
+and run `cargo build`:
 
 ```
 $ git clone --recursive https://github.com/liamhays/flipwire
@@ -111,5 +160,5 @@ $ cargo build
 ```
 
 If you're on Linux, especially a weak single-board computer, I
-recommend using the (https://github.com/rui314/mold)[mold] linker
+recommend using the [mold](https://github.com/rui314/mold) linker
 via `mold -run` or some configuration in `.cargo/config.toml`.
