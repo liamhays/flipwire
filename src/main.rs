@@ -58,6 +58,12 @@ enum Commands {
     Alert {
 
     },
+
+    /// Set the Flipper's time and date to the computer's current time and date
+    Synctime {
+
+    },
+    
 }
 
 #[derive(Parser, Debug)]
@@ -175,6 +181,16 @@ async fn main() {
                 },
                 Err(e) => {
                     error!("failed to send alert: {}", e);
+                },
+            };
+        },
+        Commands::Synctime {} => {
+            match flipper.sync_datetime().await {
+                Ok(()) => {
+                    info!("Flipper date and time set!");
+                },
+                Err(e) => {
+                    error!("failed to set Flipper date and time: {}", e);
                 },
             };
         },

@@ -3,6 +3,9 @@ use std::path::Path;
 use std::fs;
 
 use protobuf::{Message, MessageField, CodedInputStream};
+use chrono;
+use chrono::Datelike;
+use chrono::Timelike;
 
 use crate::flipper_pb;
 
@@ -207,6 +210,32 @@ impl ProtobufCodec {
         let mut final_vec = Vec::new();
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
+        Ok(final_vec)
+    }
+
+    pub fn create_set_datetime_request_packet(&mut self, datetime: chrono::DateTime<chrono::FixedOffset>) -> Result<Vec<u8>, Box<dyn Error>> {
+        let mut set_datetime_request = flipper_pb::system::SetDateTimeRequest::default();
+        let mut datetime_pb = flipper_pb::system::DateTime::default();
+        datetime_pb.hour = datetime.hour();
+        datetime_pb.minute = datetime.minute();
+        datetime_pb.second = datetime.second();
+        
+        datetime_pb.day = datetime.day();
+        datetime_pb.month = datetime.month();
+        datetime_pb.year = datetime.year().try_into()?;
+
+        datetime_pb.weekday = datetime.weekday() as u32;
+
+        set_datetime_request.datetime = MessageField::some(datetime_pb);
+        
+        let mut final_msg = self.new_blank_packet(true);
+        final_msg.content = Some(
+            flipper_pb::flipper::main::Content::SystemSetDatetimeRequest(
+                set_datetime_request));
+
+        let mut final_vec = Vec::new();
+        final_msg.write_length_delimited_to_vec(&mut final_vec)?;
+        
         Ok(final_vec)
     }
     

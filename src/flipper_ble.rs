@@ -8,9 +8,6 @@ use tokio::time::Duration;
 use uuid::{uuid, Uuid};
 use indicatif::{ProgressBar, ProgressStyle};
 
-#[cfg(target_os = "windows")]
-use btleplug::api::ScanFilter;
-
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -48,6 +45,7 @@ fn format_u8_slice(bs: &[u8]) -> String {
 impl FlipperBle {
     #[cfg(target_os = "windows")]
     async fn flipper_scan(central: &Adapter) -> Result<(), Box<dyn Error>> {
+        use btleplug::api::ScanFilter;
         // Flipper doesn't advertise the serial service, so we just
         // scan. 5 seconds works on an Intel 3165, may need testing on
         // other cards.
@@ -106,12 +104,13 @@ impl FlipperBle {
 
         // Linux remembers devices that have been paired and can try
         // to connect to them without scanning. Windows needs to scan,
-        // and the delay we have may not be long enough for every adapter.
+        // and the delay we have may not be long enough for every
+        // adapter (but I've tested several and it seems ok).
+        // Of course, the Flipper must already be paired.
         
         #[cfg(target_os = "windows")]
         FlipperBle::flipper_scan(&central).await?;
         
-        // The Flipper must be paired already
         let flip =
             if let Some(d) = Self::find_device_named(flipper_name, &central).await {
                 d
@@ -123,6 +122,7 @@ impl FlipperBle {
         flip.discover_services().await?;
 
         info!("connected to Flipper {}", flipper_name);
+        
         Ok(FlipperBle {
             proto: ProtobufCodec::new(),
             flipper: flip,
@@ -188,8 +188,6 @@ impl FlipperBle {
             return Err(format!("Destination path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
         }
 
-        // unless we wrestle with static lifetimes, each function has
-        // to get the characteristics
         let rx_chr = self.get_rx_chr();
         let tx_chr = self.get_tx_chr();
         let flow_chr = self.get_flow_chr();
@@ -489,6 +487,16 @@ impl FlipperBle {
 
         Ok(())
     }
-    
+
+    pub async fn sync_datetime(&mut self) -> Result<(), Box<dyn Error>> {
+        let rx_chr = self.get_rx_chr();
+
+        let now = chrono::Local::now();
+        let packet = self.proto.create_set_datetime_request_packet(now.into())?;
+
+        self.flipper.write(&rx_chr, &packet, WriteType::WithoutResponse).await?;
+
+        Ok(())
+    }   
 }
 
