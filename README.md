@@ -88,7 +88,9 @@ Bluetooth tool refuses to pair to the Flipper.
 - On Linux, restart the Bluetooth service with `sudo systemctl restart
   bluetooth` (or the equivalent if you're not on systemd). 
   
-This can fix issues like `Error finding Flipper Uwuw2: le-connection-abort-by-local`.
+This can fix issues like `Error finding Flipper Uwuw2:
+le-connection-abort-by-local`. You might also need to remove and
+re-pair.
 
 - If it's still not working, you've probably discovered a bug. Create
   a new issue with some output with `RUST_LOG=debug` and a description
@@ -150,8 +152,11 @@ issue or pull request.
 # Building
 Make sure you have `protoc`, the [protobuf
 compiler](https://github.com/protocolbuffers/protobuf#protobuf-compiler-installation),
-installed and in your PATH. Clone the Flipwire repo and submodules,
-and run `cargo build`:
+installed and in your PATH. On Linux, you also need `libdbus`
+(including the headers) and `pkg-config`. Check your package manager
+for these. 
+
+Clone the Flipwire repo and submodules, and run `cargo build`:
 
 ```
 $ git clone --recursive https://github.com/liamhays/flipwire
