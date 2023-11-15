@@ -6,7 +6,7 @@ fn main() {
     // Use system `protoc` instead of bloated `protoc-bin-vendored` crate.
 
     // All inputs and imports from the inputs must reside in `includes` directories.
-        .includes(&["flipperzero-protobuf"])
+        .includes(["flipperzero-protobuf"])
     // Inputs must reside in some of include paths.
         .input("flipperzero-protobuf/application.proto")
         .input("flipperzero-protobuf/desktop.proto")

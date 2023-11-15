@@ -31,7 +31,7 @@ enum Commands {
     Download {
         /// Flipper file to download
         file: String,
-        /// Destination path on computer
+        /// Destination path on computer including filename
         dest: PathBuf,
     },
     /// Upload a file to the Flipper and attempt to launch it as an app
@@ -54,12 +54,13 @@ enum Commands {
         path: String,
     },
 
-    /// Play an alert on the Flipper
+    /// Play the Flipper's buzzing and flashing alert
     Alert {
 
     },
 
-    /// Set the Flipper's time and date to the computer's current time and date
+    /// Set the Flipper's time and date to the computer's current time
+    /// and date
     Synctime {
 
     },
@@ -76,7 +77,7 @@ struct Cli {
     #[arg(short)]
     flipper_name: String,
 
-    /// Disconnect from Flipper on exit
+    /// Disconnect from Flipper after all operations finish
     #[arg(short)]
     disconnect: bool,
 }

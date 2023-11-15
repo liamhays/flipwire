@@ -3,7 +3,6 @@ use std::path::Path;
 use std::fs;
 
 use protobuf::{Message, MessageField, CodedInputStream};
-use chrono;
 use chrono::Datelike;
 use chrono::Timelike;
 
@@ -32,15 +31,37 @@ impl ProtobufCodec {
     }
 
     fn new_blank_packet(&mut self, increment: bool) -> flipper_pb::flipper::Main {
-        let mut final_msg = flipper_pb::flipper::Main::default();
-        final_msg.command_id = self.command_id;
-        final_msg.command_status = flipper_pb::flipper::CommandStatus::OK.into();
+        let final_msg = flipper_pb::flipper::Main {
+            command_id: self.command_id,
+            command_status: flipper_pb::flipper::CommandStatus::OK.into(),
+            // give default values to the rest of the fields
+            ..Default::default()
+        };
 
         if increment {
             self.command_id += 1;
         }
 
         final_msg
+    }
+
+    /// Increment the global command ID. Call this after the Flipper
+    /// sends a successful command.
+    pub fn inc_command_id(&mut self) {
+        self.command_id += 1;
+    }
+
+    /// Returns a Vec<u8> containing an encoded Empty packet with
+    /// command status OK, used for responses to the Flipper after an
+    /// operation.
+    pub fn create_ok_packet(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
+        let mut final_vec = Vec::new();
+        
+        let packet = self.new_blank_packet(true);
+
+        packet.write_length_delimited_to_vec(&mut final_vec)?;
+
+        Ok(final_vec)
     }
     /// Returns a Vec<u8> containing an encoded AppStartRequest
     /// protobuf packet to send to the Flipper, or an error if
@@ -51,9 +72,11 @@ impl ProtobufCodec {
     ///
     /// * `path`: Full Flipper path or builtin app name to launch.
     pub fn create_launch_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
-        let mut launch_request = flipper_pb::application::StartRequest::default();
-        // builtin apps can be launched by name, external ones need a full path
-        launch_request.name = path.to_string();
+        let launch_request = flipper_pb::application::StartRequest {
+            // builtin apps can be launched by name, external ones need a full path
+            name: path.to_string(),
+            ..Default::default()
+        };
 
         let mut final_msg = self.new_blank_packet(true);
         final_msg.content = Some(flipper_pb::flipper::main::Content::AppStartRequest(launch_request));
@@ -72,8 +95,10 @@ impl ProtobufCodec {
     /// protobuf packet for a specific path to send to the Flipper, or
     /// an error if encoding failed. The path must be less than PROTOBUF_CHUNK_SIZE.
     pub fn create_list_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
-        let mut list_request = flipper_pb::storage::ListRequest::default();
-        list_request.path = path.to_string();
+        let list_request = flipper_pb::storage::ListRequest {
+            path: path.to_string(),
+            ..Default::default()
+        };
 
         let mut final_msg = self.new_blank_packet(true);
         final_msg.content = Some(flipper_pb::flipper::main::Content::StorageListRequest(list_request));
@@ -98,6 +123,7 @@ impl ProtobufCodec {
     ///
     /// * Vec<usize> of the number of _file bytes_ in the corresponding packet
     /// * Vec<Vec<u8>> of packets
+    /// This is janky and should probably be changed.
     pub fn create_write_request_packets(
         &mut self,
         file: &Path,
@@ -111,10 +137,13 @@ impl ProtobufCodec {
         // Workaround: an empty file will cause the loop to never
         // run. There's no easy "always iterate at least once" wrapper
         // for an iterator, so we do this instead.
-        if file_contents.len() == 0 {
+        if file_contents.is_empty() {
             debug!("creating packets for empty file");
-            let mut write_request = flipper_pb::storage::WriteRequest::default();
-            write_request.path = destpath.to_string();
+            let write_request = flipper_pb::storage::WriteRequest {
+                path: destpath.to_string(),
+
+                ..Default::default()
+            };
             // no data to write here
             
             let mut packet = self.new_blank_packet(false);
@@ -138,8 +167,11 @@ impl ProtobufCodec {
                 };
                 
                 // make a write request packet
-                let mut write_request = flipper_pb::storage::WriteRequest::default();
-                write_request.path = destpath.to_string();
+                let mut write_request = flipper_pb::storage::WriteRequest {
+                    path: destpath.to_string(),
+
+                    ..Default::default()
+                };
                 // You have to use MessageField::some() to write to the `file` field.
                 // There are other fields in the File struct but we don't
                 // need to worry about them.
@@ -174,8 +206,11 @@ impl ProtobufCodec {
     }
 
     pub fn create_read_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
-        let mut read_request = flipper_pb::storage::ReadRequest::default();
-        read_request.path = path.to_string();
+        let read_request = flipper_pb::storage::ReadRequest {
+            path: path.to_string(),
+
+            ..Default::default()
+        };
 
         let mut final_msg = self.new_blank_packet(true);
         final_msg.content = Some(flipper_pb::flipper::main::Content::StorageReadRequest(read_request));
@@ -188,8 +223,11 @@ impl ProtobufCodec {
     }
 
     pub fn create_stat_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
-        let mut stat_request = flipper_pb::storage::StatRequest::default();
-        stat_request.path = path.to_string();
+        let stat_request = flipper_pb::storage::StatRequest {
+            path: path.to_string(),
+
+            ..Default::default()
+        };
 
         let mut final_msg = self.new_blank_packet(true);
         final_msg.content = Some(flipper_pb::flipper::main::Content::StorageStatRequest(stat_request));
@@ -214,19 +252,26 @@ impl ProtobufCodec {
     }
 
     pub fn create_set_datetime_request_packet(&mut self, datetime: chrono::DateTime<chrono::FixedOffset>) -> Result<Vec<u8>, Box<dyn Error>> {
-        let mut set_datetime_request = flipper_pb::system::SetDateTimeRequest::default();
-        let mut datetime_pb = flipper_pb::system::DateTime::default();
-        datetime_pb.hour = datetime.hour();
-        datetime_pb.minute = datetime.minute();
-        datetime_pb.second = datetime.second();
-        
-        datetime_pb.day = datetime.day();
-        datetime_pb.month = datetime.month();
-        datetime_pb.year = datetime.year().try_into()?;
 
-        datetime_pb.weekday = datetime.weekday() as u32;
+        let datetime_pb = flipper_pb::system::DateTime {
+            hour: datetime.hour(),
+            minute: datetime.minute(),
+            second: datetime.second(),
 
-        set_datetime_request.datetime = MessageField::some(datetime_pb);
+            day: datetime.day(),
+            month: datetime.month(),
+            year: datetime.year() as u32,
+
+            weekday: datetime.weekday() as u32,
+
+            ..Default::default()
+        };
+
+        let set_datetime_request = flipper_pb::system::SetDateTimeRequest {
+            datetime: MessageField::some(datetime_pb),
+
+            ..Default::default()
+        };
         
         let mut final_msg = self.new_blank_packet(true);
         final_msg.content = Some(

@@ -2,7 +2,6 @@ use futures::StreamExt;
 use futures::FutureExt;
 use btleplug::api::{Central, Manager as _, Peripheral as _, WriteType, Characteristic};
 use btleplug::platform::{Manager, Peripheral, Adapter};
-use tokio;
 use tokio::time;
 use tokio::time::Duration;
 use uuid::{uuid, Uuid};
@@ -47,8 +46,8 @@ impl FlipperBle {
     async fn flipper_scan(central: &Adapter) -> Result<(), Box<dyn Error>> {
         use btleplug::api::ScanFilter;
         // Flipper doesn't advertise the serial service, so we just
-        // scan. 5 seconds works on an Intel 3165, may need testing on
-        // other cards.
+        // scan. I've tested 5 seconds on several Intel cards
+        // (including the broken ones) and it seems to work fine.
         central.start_scan(ScanFilter::default()).await?;
         // The event stream probably isn't useful because it only
         // shows MAC address, and if we don't know it already, that's
@@ -89,8 +88,8 @@ impl FlipperBle {
         let manager = Manager::new().await?;
         let central = match manager.adapters().await {
             Ok(adapters) => {
-                if adapters.len() < 1 {
-                    return Err(format!("no Bluetooth adapters found").into());
+                if adapters.is_empty() {
+                    return Err("no Bluetooth adapters found".into());
                 }
                 adapters.into_iter().nth(0).unwrap()
             },
@@ -129,7 +128,6 @@ impl FlipperBle {
         })
     }
 
-
     pub async fn disconnect(&self) -> Result<(), Box<dyn Error>> {
         self.flipper.disconnect().await?;
         Ok(())
@@ -165,7 +163,7 @@ impl FlipperBle {
         flow_chr.clone()
     }
     
-    fn get_file_progress_bar(&self, bytes_length: u64) -> ProgressBar {
+    fn make_file_progress_bar(&self, bytes_length: u64) -> ProgressBar {
         let pb = ProgressBar::new(bytes_length);
         pb.set_style(ProgressStyle::with_template(
             "[{wide_bar:.cyan/blue}] {bytes}/{total_bytes} {elapsed}")
@@ -214,42 +212,46 @@ impl FlipperBle {
 
         // Progress bar is representative of only the actual bytes in
         // the file, not including the data in the protobuf messages.
-        let pb = self.get_file_progress_bar(u64::try_from(filesize)?);
+        let pb = self.make_file_progress_bar(filesize);
 
-        // This loop waits a small time between packets, or if it gets
-        // a notification on the flow control char, it waits a long
-        // time. (This seems counterintuitive, because every time we
-        // actually get a notification, the available buffer size is
-        // the full 1024 bytes. Basically, I don't know why this
+        // This loop waits a small time between packets, but if it
+        // gets a notification on the flow control char, it waits a
+        // long time. (This seems counterintuitive, because every time
+        // we actually get a notification, the available buffer size
+        // is the full 1024 bytes. Basically, I don't know why this
         // works, but it does).
         let mut pos: u64 = 0;
         for (p, chunk_size) in packet_stream.iter().zip(file_chunk_sizes.iter()) {
-            self.flipper.write(&rx_chr, &p, WriteType::WithoutResponse).await?;
+            self.flipper.write(&rx_chr, p, WriteType::WithoutResponse).await?;
             pos += u64::try_from(*chunk_size)?;
             pb.set_position(pos);
             // now_or_never() evaluates and consumes the future
             // immediately, returning an Option with the
-            // ValueNotification. This approach to async subscription
-            // works.
+            // ValueNotification. We're using it to check if there's a
+            // new notification in the stream.
 
             // Waiting when we get this notification also seems to
             // help (slightly fewer buffer overrun warnings?), but we
             // still get them. Furthermore, it's not good to run with
             // debug-level logging, because it causes a timeout.
-            if let Some(Some(_)) = stream.next().now_or_never() {
+            if stream.next().now_or_never().is_some() {
+                // (we don't care about the value of the notification)
+                
                 // The data in this characteristic is the free space
                 // left in the BLE serial buffer on the Flipper, as a
-                // 32-bit big-endian integer.
+                // 32-bit big-endian integer. In this situation, it's
+                // always the value 1024, indicating that the buffer
+                // is empty. I don't know how you're supposed to use
+                // it.
                 
                 // 800 ms is a good sleep here, it causes it to run
                 // slowly enough to not lag notably at the end.
                 time::sleep(Duration::from_millis(800)).await;
 
             }
-
             time::sleep(Duration::from_millis(80)).await;
-
         }
+        
         pb.finish();
         debug!("sent all packets!");
 
@@ -261,7 +263,7 @@ impl FlipperBle {
         if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::OK.into() {
             Ok(())
         } else {
-            Err(format!("Flipper returned error: {:?}", response[1]).into())
+            Err(format!("Flipper returned error: {:?}", pb_response.1).into())
         }
     }
 
@@ -280,7 +282,7 @@ impl FlipperBle {
 
         // Do a stat request so that we can get the size of the file
         let mut stream = self.flipper.notifications().await?;
-        let stat_request = self.proto.create_stat_request_packet(&path)?;
+        let stat_request = self.proto.create_stat_request_packet(path)?;
 
         debug!("encoded stat request: {:?}", format_u8_slice(&stat_request));
 
@@ -318,7 +320,7 @@ impl FlipperBle {
         self.flipper.write(&rx_chr, &read_request, WriteType::WithResponse).await?;
         time::sleep(Duration::from_millis(200)).await;
         debug!("wrote read request");
-        let pb = self.get_file_progress_bar(u64::try_from(filesize)?);
+        let pb = self.make_file_progress_bar(u64::try_from(filesize)?);
 
         let mut file_pos: u64 = 0;
         full_protobuf.clear();
@@ -338,7 +340,7 @@ impl FlipperBle {
                             pb.set_position(file_pos);
                         }
                         // if we're on the last packet, stop getting data
-                        if m.1.has_next == false {
+                        if !m.1.has_next {
                             break;
                         }
                         full_protobuf.clear();
@@ -356,6 +358,13 @@ impl FlipperBle {
         let mut out = fs::File::create(dest)?;
         out.write_all(&file_contents)?;
 
+        // should we send an OK?
+        self.proto.inc_command_id();
+
+        let ok_response = self.proto.create_ok_packet()?;
+
+        self.flipper.write(&rx_chr, &ok_response, WriteType::WithoutResponse).await?;
+        debug!("Wrote OK to Flipper");
         Ok(())
     }
     
@@ -431,7 +440,7 @@ impl FlipperBle {
                                 entries.push(f);
                             }
                             // if we're on the last packet, stop getting data
-                            if m.1.has_next == false {
+                            if !m.1.has_next {
                                 break;
                             };
                         } else if let Some(flipper_pb::flipper::main::Content::Empty(_)) = m.1.content {
@@ -492,6 +501,7 @@ impl FlipperBle {
         let rx_chr = self.get_rx_chr();
 
         let now = chrono::Local::now();
+        debug!("using datetime {:?}", now);
         let packet = self.proto.create_set_datetime_request_packet(now.into())?;
 
         self.flipper.write(&rx_chr, &packet, WriteType::WithoutResponse).await?;
