@@ -253,6 +253,10 @@ impl ProtobufCodec {
 
     pub fn create_set_datetime_request_packet(&mut self, datetime: chrono::DateTime<chrono::FixedOffset>) -> Result<Vec<u8>, Box<dyn Error>> {
 
+        // SetDatetimeRequest is a thin wrapper around
+        // FuriHalRtcDateTime which itself is a thin wrapper around
+        // the STM32 LL RTC driver. This driver defines Monday as day
+        // 1 and Sunday as day 7, hence number_from_monday() below.
         let datetime_pb = flipper_pb::system::DateTime {
             hour: datetime.hour(),
             minute: datetime.minute(),
@@ -262,7 +266,7 @@ impl ProtobufCodec {
             month: datetime.month(),
             year: datetime.year() as u32,
 
-            weekday: datetime.weekday() as u32,
+            weekday: datetime.weekday().number_from_monday(),
 
             ..Default::default()
         };
