@@ -39,6 +39,7 @@ Commands:
 - `launch <app>`: launch a `.fap` file on the Flipper.
 - `ls <dir>`: list a directory on the Flipper.
 - `alert`: play an alert on the Flipper to help you find it.
+- `synctime`: sync the Flipper's clock to the computer's clock.
 
 ## Flipper paths
 The Flipper uses a Unix-style path system to specify paths in internal
@@ -62,8 +63,14 @@ Because I like Rust. Also, because the Flipper ecosystem has a strong
 "plug and play" mentality, and Rust makes it easy to make an
 application that does exactly that.
 
+## Where's the GUI?
+No GUI yet, possibly never. A GUI makes the application a lot larger
+and more complex, and on top of that, there isn't much Rust GUI
+support right now. If I do add GUI support, I would probably use
+[imgui-rs](https://github.com/imgui-rs/imgui-rs).
+
 ## Flipwire hangs during a download.
-Run through the troubleshooting steps below just in case some has
+Run through the troubleshooting steps below just in case something has
 temporarily broken. If the issue still happens, then your Bluetooth
 adapter is probably incompatible with the Flipper. Report your adapter
 model in a new issue and I'll add it to the list above.

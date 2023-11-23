@@ -73,7 +73,7 @@ struct Cli {
     #[command(subcommand)]
     command: Commands,
     
-    /// Unique Flipper name (e.g., "Uwu2" for "Flipper Uwu2")
+    /// Unique Flipper name, like "Uwu2" for "Flipper Uwu2" (required!)
     #[arg(short)]
     flipper_name: String,
 

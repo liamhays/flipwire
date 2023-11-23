@@ -2,6 +2,10 @@
 name = "flipwire"
 version = "0.1.0"
 edition = "2021"
+readme = "README.md"
+repository = "https://github.com/liamhays/flipwire"
+license = "MIT"
+description = "Bluetooth app to control a Flipper Zero from a PC"
 
 [dependencies]
 btleplug = "0.11.1"
