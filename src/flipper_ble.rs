@@ -267,7 +267,7 @@ impl FlipperBle {
         }
     }
 
-    // This is the main thing that doesn't work with Intel adapters.
+    // This is the main thing that doesn't work with Intel Stone Peak adapters.
     pub async fn download_file(&mut self, path: &str, dest: &Path) -> Result<(), Box<dyn Error>> {
         if path.len() > PROTOBUF_CHUNK_SIZE {
             return Err(format!("Filename too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());

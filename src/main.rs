@@ -68,7 +68,7 @@ enum Commands {
 }
 
 #[derive(Parser, Debug)]
-//#[command(author, version, about, long_about = None)] // read from Cargo.toml
+#[command(author, version, about, long_about = None)] // read from Cargo.toml
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -155,8 +155,6 @@ async fn main() {
             };
         },
         Commands::Ul { file, dest } => {
-            // TODO: notification stream or something to get status
-            // updates as each chunk is sent
             match flipper.upload_file(file, dest).await {
                 Ok(()) => {
                     info!("sent file successfully");
