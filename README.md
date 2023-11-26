@@ -53,6 +53,11 @@ Example paths:
 - `/ext/apps/NFC/nfc.fap`: the FAP (external application) file for the NFC app
 - `/ext/infrared`: the directory where IR files are saved
 
+In an MSYS shell on Windows, you have to suppress path translation for
+Flipwire to work. In Git Bash, set `MSYS_NO_PATHCONV=1`. In MSYS2, set
+`MSYS2_ARG_CONV_EXCL="*"`. See [this StackOverflow
+answer](https://stackoverflow.com/a/34386471).
+
 # FAQ
 ## Why "flipwire"?
 It sounds cool, plus "flip" is kind of a synonym of "invert", and the
