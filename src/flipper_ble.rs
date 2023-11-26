@@ -395,6 +395,8 @@ impl FlipperBle {
             Ok(())
         } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_INVALID_PARAMETERS.into() {
             Err("Application path is invalid!".into())
+        } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_APP_CANT_START.into() {
+            Err("App can't start! Did you specify the path to a Flipper app?".into())
         } else {
             Err(format!("Flipper returned unexpected response: {:?}", pb_response).into())
         }
