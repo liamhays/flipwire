@@ -106,9 +106,13 @@ impl FlipperBle {
         // and the delay we have may not be long enough for every
         // adapter (but I've tested several and it seems ok).
         // Of course, the Flipper must already be paired.
-        
+
+        // We also can't use the nice async scan notification stream,
+        // because it doesn't say anything about device names.
         #[cfg(target_os = "windows")]
         FlipperBle::flipper_scan(&central).await?;
+
+
         
         let flip =
             if let Some(d) = Self::find_device_named(flipper_name, &central).await {
@@ -117,11 +121,15 @@ impl FlipperBle {
                 return Err(format!("no device with name {:?} found", flipper_name).into());
             };
 
-        flip.connect().await?;
-        flip.discover_services().await?;
+        #[cfg(target_os = "linux")]
+        if !flip.is_connected().await? {
+            flip.connect().await?;
+            info!("connected to Flipper {}", flipper_name);
+        } else {
+            info!("already connected to Flipper {}", flipper_name);
+        }
 
-        info!("connected to Flipper {}", flipper_name);
-        
+        flip.discover_services().await?;
         Ok(FlipperBle {
             proto: ProtobufCodec::new(),
             flipper: flip,
@@ -173,6 +181,9 @@ impl FlipperBle {
         pb
     }
 
+    // TODO: this still beefs with long pauses after
+    // uploading. Probably needs more calibration.
+    // or stone peak is just completely broken. hard to say.
     /// Upload a file to a specific filename on the Flipper over BLE.
     ///
     /// # Arguments
