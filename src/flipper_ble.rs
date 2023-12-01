@@ -252,15 +252,20 @@ impl FlipperBle {
                 // left in the BLE serial buffer on the Flipper, as a
                 // 32-bit big-endian integer. In this situation, it's
                 // always the value 1024, indicating that the buffer
-                // is empty. I don't know how you're supposed to use
-                // it.
+                // is empty.
                 
-                // 800 ms is a good sleep here, it causes it to run
-                // slowly enough to not lag notably at the end.
+                // 800 ms is a good sleep here. Sometimes we end up in
+                // this state many times during a transfer, so keeping
+                // this short is desirable.
                 time::sleep(Duration::from_millis(800)).await;
 
             }
-            time::sleep(Duration::from_millis(80)).await;
+            // On Linux at least (with my goofy Intel 7265), 140 ms
+            // works very well and stops the host from timing out
+            // waiting for a reply after sending the whole file, a
+            // problem that happens most often right after the adapter
+            // has been enabled.
+            time::sleep(Duration::from_millis(140)).await;
         }
         
         pb.finish();
