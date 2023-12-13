@@ -10,18 +10,19 @@ use crate::flipper_pb;
 
 // The flipperzero_protobuf_py example uses a chunk size of 512, which
 // absolutely doesn't work for us, because you can only write up to
-// 512 bytes to a characteristic! To leave room for protobuf data, we
-// cut that down to 300 bytes.
+// 512 bytes to a characteristic at a time! To leave room for protobuf
+// data, we cut that down to 350 bytes.
 //
-// Furthermore, the Flipper needs a small size so that the serial
-// service can correctly process it.
+// This number also affects things like lag, and 350 is a good number
+// that seems to just work.
 pub const PROTOBUF_CHUNK_SIZE: usize = 350;
 
-// command_id is uint32 in protobuf definition
-// I don't have a great name for this struct
+
 pub struct ProtobufCodec {
+    // command_id is uint32 in protobuf definition
     command_id: u32,
 }
+
 #[allow(dead_code)]
 impl ProtobufCodec {
     pub fn new() -> ProtobufCodec {
@@ -205,6 +206,7 @@ impl ProtobufCodec {
         Ok((chunk_sizes, packet_stream))
     }
 
+    /// Returns a Vec<u8> of an encoded StorageReadRequest for the file at `path`.
     pub fn create_read_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
         let read_request = flipper_pb::storage::ReadRequest {
             path: path.to_string(),
@@ -222,6 +224,7 @@ impl ProtobufCodec {
         Ok(final_vec)
     }
 
+    /// Returns a Vec<u8> of an encoded StorageStatRequest for the file at `path`.
     pub fn create_stat_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
         let stat_request = flipper_pb::storage::StatRequest {
             path: path.to_string(),
@@ -238,6 +241,8 @@ impl ProtobufCodec {
 
         Ok(final_vec)
     }
+
+    /// Returns a Vec<u8> of an encoded PlayAudiovisualAlertRequest.
     pub fn create_alert_request_packet(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut final_msg = self.new_blank_packet(true);
         // we can combine this because PlayAudiovisualAlertRequest has no fields
@@ -251,6 +256,8 @@ impl ProtobufCodec {
         Ok(final_vec)
     }
 
+    /// Returns a Vec<u8> of an encoded SetDatetimeRequest with the
+    /// datetime arguments set to the fields in `datetime`.
     pub fn create_set_datetime_request_packet(&mut self, datetime: chrono::DateTime<chrono::FixedOffset>) -> Result<Vec<u8>, Box<dyn Error>> {
 
         // SetDatetimeRequest is a thin wrapper around
@@ -287,7 +294,10 @@ impl ProtobufCodec {
         
         Ok(final_vec)
     }
-    
+
+    /// Parse a &[u8] straight from the Flipper into a Main protobuf
+    /// struct. This expects the bytes to start with a varint
+    /// indicating the length of the following data.
     pub fn parse_response(data: &[u8]) -> Result<(u32, flipper_pb::flipper::Main), Box<dyn Error>> {
         let mut stream = CodedInputStream::from_bytes(data);
         let length = stream.read_raw_varint32()?;

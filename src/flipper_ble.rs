@@ -181,9 +181,7 @@ impl FlipperBle {
         pb
     }
 
-    // TODO: this still beefs with long pauses after
-    // uploading. Probably needs more calibration.
-    // or stone peak is just completely broken. hard to say.
+
     /// Upload a file to a specific filename on the Flipper over BLE.
     ///
     /// # Arguments
@@ -515,6 +513,7 @@ impl FlipperBle {
         Ok(())
     }
 
+    /// Sync the Flipper's date and time to the computer's date and time.
     pub async fn sync_datetime(&mut self) -> Result<(), Box<dyn Error>> {
         let rx_chr = self.get_rx_chr();
 
