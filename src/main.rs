@@ -1,5 +1,3 @@
-// TODO: move away from protoc-bin-vendored
-
 // These are declared globally so that everything can use them,
 // especially `flipper_pb`.
 mod flipper_pb;
