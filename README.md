@@ -6,10 +6,6 @@ Flipwire lets you control your Flipper Zero from any computer over
 Bluetooth just like the mobile app. Flipwire is currently only a
 command-line tool.
 
-I am currently only providing Linux and Windows builds of Flipwire,
-because I don't have a macOS machine to build and test on. If you
-would like to be a macOS tester, let me know by opening an issue.
-
 # Usage
 Flipwire will attempt to connect to your Flipper before any
 operation. Pair your Flipper to your computer before using Flipwire so
@@ -54,14 +50,16 @@ Example paths:
 - `/ext/infrared`: the directory where IR files are saved
 
 In an MSYS shell on Windows, you have to suppress path translation for
-Flipwire to work. In Git Bash, set `MSYS_NO_PATHCONV=1`. In MSYS2, set
+Flipwire to work, otherwise it will receive Flipper paths as local
+system paths. In Git Bash, set `MSYS_NO_PATHCONV=1`. In MSYS2, set
 `MSYS2_ARG_CONV_EXCL="*"`. See [this StackOverflow
 answer](https://stackoverflow.com/a/34386471).
 
 # FAQ
 ## Why "flipwire"?
-It sounds cool, plus "flip" is kind of a synonym of "invert", and the
-opposite of a wire is wireless, just like `flipwire` and the Flipper.
+It sounds cool. Plus, "flip" is sort of a synonym of "invert", and the
+opposite of a wire is wireless, and Flipwire lets you do things with
+your Flipper wirelessly...you get the idea.
 
 ## Why Rust?
 Because I like Rust. Also, because the Flipper ecosystem has a strong
@@ -73,6 +71,15 @@ No GUI yet, possibly never. A GUI makes the application a lot larger
 and more complex, and on top of that, there isn't much Rust GUI
 support right now. If I do add GUI support, I would probably use
 [imgui-rs](https://github.com/imgui-rs/imgui-rs).
+
+## What about macOS?
+From my limited testing, the Flipper doesn't show up in a macOS
+Bluetooth scan. There's one instance of a person using an alternate
+Bluetooth tool to connect the Flipper but I don't know if Flipwire
+works.
+
+I don't have a macOS device to test on or to provide builds for, so
+until I do, consider Flipwire macOS support completely experimental.
 
 ## Flipwire hangs during a download.
 Run through the troubleshooting steps below just in case something has
@@ -89,7 +96,7 @@ returning an error.
 Note that on Linux, you might need to use `bluetoothctl` instead of
 your desktop environment's Bluetooth tool. For example, the KDE
 Bluetooth tool refuses to pair to the Flipper.
-	
+
 - Turn Bluetooth on the Flipper off and on again.
 - Turn Bluetooth on your computer off and on again.
 - Unpair the Flipper from your computer and pair it again.
@@ -99,7 +106,7 @@ Bluetooth tool refuses to pair to the Flipper.
   if anything odd is happening.
 - On Linux, restart the Bluetooth service with `sudo systemctl restart
   bluetooth` (or the equivalent if you're not on systemd). 
-  
+
 This can fix issues like `Error finding Flipper Uwuw2:
 le-connection-abort-by-local`. You might also need to remove and
 re-pair.
@@ -108,8 +115,8 @@ re-pair.
   a new issue with some output with `RUST_LOG=debug` and a description
   of the problem.
 
-Please note that I will only support Flipwire when used with Flippers
-running official firmware.
+Flipwire is only intended for use with Flippers running official
+firmware. If you're using another firmware, you're on your own.
 
 # Adapter Incompatibility
 In RPC mode, the Flipper's Bluetooth implementation exhibits strange
@@ -154,9 +161,8 @@ Peak.
 # Contributing
 Like Flipwire? Leave me a star!
 
-I need a macOS tester to have real cross-platform support. I've done a
-little bit of macOS testing, and the system Bluetooth scanner wouldn't
-find my Flipper.
+If you'd like to test Flipwire on macOS, let me know! I'd love to make
+it fully cross-platform.
 
 If you have feature requests, bugs to report, or code to add, open an
 issue or pull request.

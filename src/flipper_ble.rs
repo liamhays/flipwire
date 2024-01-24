@@ -269,6 +269,11 @@ impl FlipperBle {
         pb.finish();
         debug!("sent all packets!");
 
+        // This is the place where the ATT error occurs. It might be
+        // another Stone Peak oddity, but sometimes the upload
+        // finishes but this step fails with an error about ATT
+        // 0x0b. 0x0b is a Read Response opcode, maybe it's something
+        // with the delay?
         time::sleep(Duration::from_millis(400)).await;
         let response = self.flipper.read(&tx_chr).await?;
         let pb_response = ProtobufCodec::parse_response(&response)?;
@@ -524,6 +529,7 @@ impl FlipperBle {
         self.flipper.write(&rx_chr, &packet, WriteType::WithoutResponse).await?;
 
         Ok(())
-    }   
+    }
+
 }
 

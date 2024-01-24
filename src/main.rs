@@ -45,7 +45,8 @@ enum Commands {
         /// app (i.e., "NFC")
         app: String,
     },
-    
+
+
     /// Get a file listing of a Flipper directory
     Ls {
         #[arg(default_value="/ext")]
@@ -130,7 +131,7 @@ async fn main() {
                 }
             };
         },
-        
+
         Commands::Download { file, dest } => {
             match flipper.download_file(file, dest).await {
                 Ok(()) => {

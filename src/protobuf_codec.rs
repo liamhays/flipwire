@@ -295,6 +295,7 @@ impl ProtobufCodec {
         Ok(final_vec)
     }
 
+    
     /// Parse a &[u8] straight from the Flipper into a Main protobuf
     /// struct. This expects the bytes to start with a varint
     /// indicating the length of the following data.
@@ -304,4 +305,31 @@ impl ProtobufCodec {
         let s = flipper_pb::flipper::Main::parse_from_reader(&mut stream)?;
         Ok((length, s))
     }
+}
+
+#[cfg(test)]
+mod protobuf_codec_tests {
+    use crate::flipper_pb;
+
+    use super::ProtobufCodec;
+
+    #[test]
+    fn protobuf_codec_data_test() {
+        // check that data can be loaded in and out, from protobuf form to byte data
+        let mut p = ProtobufCodec::new();
+        let path = "/ext/app.fap";
+        let launch_packet = p.create_launch_request_packet(path).unwrap();
+        match ProtobufCodec::parse_response(&launch_packet) {
+            Ok(m) => {
+                if let Some(flipper_pb::flipper::main::Content::AppStartRequest(r)) = m.1.content {
+                    assert_eq!(path, r.name);
+                }
+            },
+            Err(e) => {
+                panic!("error {:?}", e);
+            }
+        };
+    }
+
+    
 }
