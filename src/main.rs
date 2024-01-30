@@ -86,9 +86,6 @@ struct Cli {
 // progress bars) is done by flipper_ble.
 #[tokio::main]
 async fn main() {
-    /*let mut p = protobuf_codec::ProtobufCodec::new();
-    let alert_packet = p.create_list_request_packet("/ext/apps/NFC/").unwrap();
-    println!("{:?}", alert_packet);*/
     // pls don't judge
     // info log level is useful and I use it for most of the status messages
     if env::var("RUST_LOG").is_err() {

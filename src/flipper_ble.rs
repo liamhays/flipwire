@@ -202,9 +202,8 @@ impl FlipperBle {
         // get filesize for the progress bar
         let filesize = fs::metadata(file)?.len();
 
-        let (file_chunk_sizes, packet_stream) =
-            self.proto.create_write_request_packets(file, dest)?;
-        debug!("sending {} packets total", packet_stream.len());
+        let write_request_chunks = self.proto.create_write_request_packets(file, dest)?;
+        debug!("sending {} packets total", write_request_chunks.len());
         // The Flipper only responds when the has_next flag is false,
         // you can see that in action at
         // https://github.com/flipperdevices/flipperzero-firmware/blob/dev/applications/services/rpc/rpc_storage.c#L473
@@ -230,9 +229,9 @@ impl FlipperBle {
         // is the full 1024 bytes. Basically, I don't know why this
         // works, but it does).
         let mut pos: u64 = 0;
-        for (p, chunk_size) in packet_stream.iter().zip(file_chunk_sizes.iter()) {
-            self.flipper.write(&rx_chr, p, WriteType::WithoutResponse).await?;
-            pos += u64::try_from(*chunk_size)?;
+        for p in write_request_chunks {
+            self.flipper.write(&rx_chr, &p.packet, WriteType::WithoutResponse).await?;
+            pos += u64::try_from(p.file_byte_count)?;
             pb.set_position(pos);
             // now_or_never() evaluates and consumes the future
             // immediately, returning an Option with the

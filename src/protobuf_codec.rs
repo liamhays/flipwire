@@ -23,6 +23,14 @@ pub struct ProtobufCodec {
     command_id: u32,
 }
 
+/// Encapsulated representation of a chunk of StorageWriteRequest data
+pub struct ProtobufWriteRequestChunk {
+    /// Number of bytes *from the file* in this chunk
+    pub file_byte_count: usize,
+    /// Actual encoded protobuf packet to send over the wire
+    pub packet: Vec<u8>,
+}
+
 #[allow(dead_code)]
 impl ProtobufCodec {
     pub fn new() -> ProtobufCodec {
@@ -122,18 +130,14 @@ impl ProtobufCodec {
     ///
     /// # Returns
     ///
-    /// * Vec<usize> of the number of _file bytes_ in the corresponding packet
-    /// * Vec<Vec<u8>> of packets
-    /// This is janky and should probably be changed.
+    /// * Vec<ProtobufWriteRequestChunk> of file chunks.
     pub fn create_write_request_packets(
         &mut self,
         file: &Path,
-        destpath: &str) -> Result<(Vec<usize>, Vec<Vec<u8>>), Box<dyn Error>> {
+        destpath: &str) -> Result<Vec<ProtobufWriteRequestChunk>, Box<dyn Error>> {
         
         let file_contents = fs::read(file)?;
         let mut packet_stream = Vec::new();
-
-        let mut chunk_sizes = Vec::new();
 
         // Workaround: an empty file will cause the loop to never
         // run. There's no easy "always iterate at least once" wrapper
@@ -153,10 +157,13 @@ impl ProtobufCodec {
 
             let mut packet_vec = Vec::new();
             packet.write_length_delimited_to_vec(&mut packet_vec)?;
-            packet_stream.push(packet_vec);
 
-            // chunk size is 0
-            chunk_sizes.push(0);
+            packet_stream.push(ProtobufWriteRequestChunk {
+                // chunk size is 0
+                file_byte_count: 0,
+                packet: packet_vec,
+            });
+
         } else {
             // Every packet is the same, a WriteRequest, and the Flipper knows
             // if we have more data to send via the has_next flag.
@@ -193,9 +200,12 @@ impl ProtobufCodec {
                 
                 let mut packet_vec = Vec::new();
                 packet.write_length_delimited_to_vec(&mut packet_vec)?;
-                packet_stream.push(packet_vec);
 
-                chunk_sizes.push(chunk.len());
+                packet_stream.push(ProtobufWriteRequestChunk {
+                    file_byte_count: chunk.len(),
+                    packet: packet_vec,
+                    
+                });
             }
         }
         // The command ID only increments after every complete
@@ -203,7 +213,7 @@ impl ProtobufCodec {
         // that represent a single command, so we increment it after
         // we make all the packets.
         self.command_id += 1;
-        Ok((chunk_sizes, packet_stream))
+        Ok(packet_stream)
     }
 
     /// Returns a Vec<u8> of an encoded StorageReadRequest for the file at `path`.
@@ -360,7 +370,7 @@ fn protobuf_codec_write_request_packet_test() {
     //let path = "/ext/apps/GPIO/ublox.fap";
 
     //let write_request_packets =
-    todo!("do this bro");
+    todo!("we need a file to test with and to figure out the testing algorithm");
 }
 
 #[test]
