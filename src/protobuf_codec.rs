@@ -133,19 +133,18 @@ impl ProtobufCodec {
     /// * Vec<ProtobufWriteRequestChunk> of file chunks.
     pub fn create_write_request_packets(
         &mut self,
-        file: &Path,
-        destpath: &str) -> Result<Vec<ProtobufWriteRequestChunk>, Box<dyn Error>> {
+        file_data: &[u8],
+        dest_path: &str) -> Result<Vec<ProtobufWriteRequestChunk>, Box<dyn Error>> {
         
-        let file_contents = fs::read(file)?;
         let mut packet_stream = Vec::new();
 
         // Workaround: an empty file will cause the loop to never
         // run. There's no easy "always iterate at least once" wrapper
         // for an iterator, so we do this instead.
-        if file_contents.is_empty() {
+        if file_data.len() == 0 {
             debug!("creating packets for empty file");
             let write_request = flipper_pb::storage::WriteRequest {
-                path: destpath.to_string(),
+                path: dest_path.to_string(),
 
                 ..Default::default()
             };
@@ -167,16 +166,16 @@ impl ProtobufCodec {
         } else {
             // Every packet is the same, a WriteRequest, and the Flipper knows
             // if we have more data to send via the has_next flag.
-            for index in (0..file_contents.len()).step_by(PROTOBUF_CHUNK_SIZE) {
-                let chunk = if index + PROTOBUF_CHUNK_SIZE < file_contents.len() {
-                    &file_contents[index..index+PROTOBUF_CHUNK_SIZE]
+            for index in (0..file_data.len()).step_by(PROTOBUF_CHUNK_SIZE) {
+                let chunk = if index + PROTOBUF_CHUNK_SIZE < file_data.len() {
+                    &file_data[index..index+PROTOBUF_CHUNK_SIZE]
                 } else {
-                    &file_contents[index..]
+                    &file_data[index..]
                 };
                 
                 // make a write request packet
                 let mut write_request = flipper_pb::storage::WriteRequest {
-                    path: destpath.to_string(),
+                    path: dest_path.to_string(),
 
                     ..Default::default()
                 };
@@ -191,7 +190,7 @@ impl ProtobufCodec {
                 let mut packet = self.new_blank_packet(false);
                 packet.content = Some(flipper_pb::flipper::main::Content::StorageWriteRequest(write_request));
                 
-                if index + PROTOBUF_CHUNK_SIZE < file_contents.len() {
+                if index + PROTOBUF_CHUNK_SIZE < file_data.len() {
                     // has_next = true because we still have more data
                     packet.has_next = true;
                 } else {
@@ -365,12 +364,36 @@ fn protobuf_codec_list_packet_test() {
 
 #[test]
 fn protobuf_codec_write_request_packet_test() {
-    //let mut p = ProtobufCodec::new();
-    //p.inc_command_id();
-    //let path = "/ext/apps/GPIO/ublox.fap";
+    // generate some data, package it up, then check to see if the
+    // data chunks match the original data
+    let mut p = ProtobufCodec::new();
+    p.inc_command_id();
+    
+    let mut data = Vec::new();
+    for i in 0..1023 {
+        data.push(i as u8);
+    }
 
-    //let write_request_packets =
-    todo!("we need a file to test with and to figure out the testing algorithm");
+    let write_request_packets =
+        p.create_write_request_packets(&data, "/ext/data.dat").unwrap();
+
+    let mut index = 0;
+    //let mut expected_command_id = 1;
+    for p in write_request_packets {
+        match ProtobufCodec::parse_response(&p.packet) {
+            Ok(m) => {
+                if let Some(flipper_pb::flipper::main::Content::StorageWriteRequest(r)) = m.1.content {
+                    assert_eq!(1, m.1.command_id);
+                    assert_eq!(r.file.data, data[index..index+p.file_byte_count]);
+                    index += p.file_byte_count;
+                    //expected_command_id += 1;
+                }
+            },
+            Err(e) => {
+                panic!("error {:?}", e);
+            }
+        };
+    }
 }
 
 #[test]

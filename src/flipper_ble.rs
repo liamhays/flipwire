@@ -201,8 +201,10 @@ impl FlipperBle {
 
         // get filesize for the progress bar
         let filesize = fs::metadata(file)?.len();
-
-        let write_request_chunks = self.proto.create_write_request_packets(file, dest)?;
+        let file_contents = fs::read(file)?;
+        
+        let write_request_chunks =
+            self.proto.create_write_request_packets(&file_contents, dest)?;
         debug!("sending {} packets total", write_request_chunks.len());
         // The Flipper only responds when the has_next flag is false,
         // you can see that in action at
