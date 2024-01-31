@@ -52,7 +52,12 @@ impl FlipperBle {
         // The event stream probably isn't useful because it only
         // shows MAC address, and if we don't know it already, that's
         // not useful.
-        time::sleep(Duration::from_millis(5000)).await;
+
+        // GapStateAdvLowPower sets a maximum interval of 2.5 seconds,
+        // so we wait for 3x that. We used to have 5 seconds but no
+        // basis for that.
+        // See https://github.com/flipperdevices/flipperzero-firmware/blob/e6f078eeb758992aef0edaf94a23eac846ca8746/targets/f7/ble_glue/gap.c#L375
+        time::sleep(Duration::from_millis(3*2500)).await;
         // stop scanning to connect
         central.stop_scan().await?;
         Ok(())

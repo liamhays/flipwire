@@ -378,7 +378,6 @@ fn protobuf_codec_write_request_packet_test() {
         p.create_write_request_packets(&data, "/ext/data.dat").unwrap();
 
     let mut index = 0;
-    //let mut expected_command_id = 1;
     for p in write_request_packets {
         match ProtobufCodec::parse_response(&p.packet) {
             Ok(m) => {
@@ -386,7 +385,6 @@ fn protobuf_codec_write_request_packet_test() {
                     assert_eq!(1, m.1.command_id);
                     assert_eq!(r.file.data, data[index..index+p.file_byte_count]);
                     index += p.file_byte_count;
-                    //expected_command_id += 1;
                 }
             },
             Err(e) => {
