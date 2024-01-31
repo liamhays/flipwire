@@ -6,6 +6,8 @@ use tokio::time;
 use tokio::time::Duration;
 use uuid::{uuid, Uuid};
 use indicatif::{ProgressBar, ProgressStyle};
+use chrono;
+use chrono::TimeZone;
 
 use std::fs;
 use std::io::Write;
@@ -524,16 +526,50 @@ impl FlipperBle {
         Ok(())
     }
 
+    // TODO: calculate time skew like qFlipper does?
     /// Sync the Flipper's date and time to the computer's date and time.
     pub async fn sync_datetime(&mut self) -> Result<(), Box<dyn Error>> {
+        // things in this function are a little out of order for
+        // Flipper time accuracy, even if it doesn't really matter
         let rx_chr = self.get_rx_chr();
+        let tx_chr = self.get_tx_chr();
 
-        let now = chrono::Local::now();
-        debug!("using datetime {:?}", now);
+        let request = self.proto.create_get_datetime_request_packet()?;
+        self.flipper.write(&rx_chr, &request, WriteType::WithoutResponse).await?;
+        let mut now = chrono::Local::now();
+        // only one packet comes in response
+        let response = self.flipper.read(&tx_chr).await?;
+
+        match ProtobufCodec::parse_response(&response) {
+            Ok(m) => {
+                if let Some(flipper_pb::flipper::main::Content::SystemGetDatetimeResponse(r)) = m.1.content {
+                    // calculate time skew
+                    let flipper_time = chrono::Local.with_ymd_and_hms(
+                        r.datetime.year as i32,
+                        r.datetime.month,
+                        r.datetime.day,
+                        r.datetime.hour,
+                        r.datetime.minute,
+                        r.datetime.second,
+                    ).unwrap();
+                    // TODO: not unwrap
+                    info!("Flipper time skew in ms: {:?}", (now - flipper_time).num_milliseconds());
+                } else {
+                    error!("received unexpected protobuf response: {:?}", m.1.content);
+                    return Err("".into());
+                }
+            },
+            Err(e) => {
+                error!("protobuf error: {:?}", e);
+            },
+        };
+
+        now = chrono::Local::now();
         let packet = self.proto.create_set_datetime_request_packet(now.into())?;
-
         self.flipper.write(&rx_chr, &packet, WriteType::WithoutResponse).await?;
-
+        
+        debug!("using datetime {:?}", now);
+        
         Ok(())
     }
 

@@ -1,12 +1,14 @@
 use std::error::Error;
-use std::path::Path;
-use std::fs;
 
 use protobuf::{Message, MessageField, CodedInputStream};
 use chrono::Datelike;
 use chrono::Timelike;
 
 use crate::flipper_pb;
+
+// This file is long and grows a decent amount each time we add a new
+// command. There's probably a better way to do this but I don't know
+// what it is.
 
 // The flipperzero_protobuf_py example uses a chunk size of 512, which
 // absolutely doesn't work for us, because you can only write up to
@@ -304,6 +306,18 @@ impl ProtobufCodec {
         Ok(final_vec)
     }
 
+    pub fn create_get_datetime_request_packet(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
+        let mut final_msg = self.new_blank_packet(true);
+
+        final_msg.content = Some(
+            flipper_pb::flipper::main::Content::SystemGetDatetimeRequest(
+                flipper_pb::system::GetDateTimeRequest::default()));
+
+        let mut final_vec = Vec::new();
+        final_msg.write_length_delimited_to_vec(&mut final_vec)?;
+
+        Ok(final_vec)
+    }
     
     /// Parse a &[u8] straight from the Flipper into a Main protobuf
     /// struct. This expects the bytes to start with a varint
@@ -481,6 +495,24 @@ pub fn protobuf_codec_set_datetime_request_test() {
     };
 }
 
+#[test]
+pub fn protobuf_codec_get_datetime_request_test() {
+    let mut p = ProtobufCodec::new();
+    p.inc_command_id();
+    let datetime_packet = p.create_get_datetime_request_packet().unwrap();
+
+    match ProtobufCodec::parse_response(&datetime_packet) {
+        Ok(m) => {
+            if let Some(flipper_pb::flipper::main::Content::SystemGetDatetimeRequest(_)) = m.1.content {
+                assert_eq!(1, m.1.command_id);
+            }
+        },
+        Err(e) => {
+            panic!("error {:?}", e);
+        }
+    };
+}
+    
 #[test]
 fn bad_data_test() {
     // force the whole thing to u8
