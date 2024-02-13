@@ -32,6 +32,11 @@ enum Commands {
         /// Destination path on computer including filename
         dest: PathBuf,
     },
+    /// Recursively delete a file on the Flipper
+    Rm {
+        /// Flipper file or directory to delete
+        file: String,
+    },
     /// Upload a file to the Flipper and attempt to launch it as an app
     Ul {
         /// Local file to upload
@@ -153,6 +158,18 @@ async fn main() {
                 }
             };
         },
+
+        Commands::Rm { file } => {
+            match flipper.delete_file(file, true).await {
+                Ok(()) => {
+                    info!("deleted file successfully");
+                },
+                Err(e) => {
+                    error!("failed to send file: {}", e);
+                }
+            };
+        },
+        
         Commands::Ul { file, dest } => {
             match flipper.upload_file(file, dest).await {
                 Ok(()) => {

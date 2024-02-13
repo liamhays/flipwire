@@ -394,6 +394,33 @@ impl FlipperBle {
         debug!("Wrote OK to Flipper");
         Ok(())
     }
+
+    /// Delete a file at a path on the Flipper. Filename must be shorter than PROTOBUF_CHUNK_SIZE.
+    ///
+    /// # Arguments
+    ///
+    /// `path`: Flipper path to file to delete
+    /// `recursive`: Delete recursively if true
+    pub async fn delete_file(&mut self, path: &str, recursive: bool) -> Result<(), Box<dyn Error>> {
+        let rx_chr = self.get_rx_chr();
+        let tx_chr = self.get_tx_chr();
+
+        let delete_packet = self.proto.create_delete_request_packet(path, recursive)?;
+        debug!("encoded delete packet: {:?}", format_u8_slice(&delete_packet));
+        self.flipper.write(&rx_chr, &delete_packet, WriteType::WithoutResponse).await?;
+
+        let response = self.flipper.read(&tx_chr).await?;
+        let pb_response = ProtobufCodec::parse_response(&response)?;
+        debug!("response received: {:?}", pb_response);
+
+
+        if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::OK.into() {
+            Ok(())
+        } else {
+            info!("received response {:?}", pb_response.1.command_id);
+            Err("".into())
+        }
+    }
     
     /// Launch an app at a path on the Flipper. Filename must be shorter
     /// than PROTOBUF_CHUNK_SIZE.
@@ -402,10 +429,6 @@ impl FlipperBle {
     ///
     /// `app`: Flipper path to .fap file to launch
     pub async fn launch(&mut self, app: &str) -> Result<(), Box<dyn Error>> {
-        if app.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
-        }
-
         let rx_chr = self.get_rx_chr();
         let tx_chr = self.get_tx_chr();
 
@@ -436,10 +459,6 @@ impl FlipperBle {
     ///
     /// * `path`: Flipper path to get listing from
     pub async fn list(&mut self, path: &str) -> Result<(), Box<dyn Error>> {
-        if path.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
-        }
-        
         let rx_chr = self.get_rx_chr();
         let tx_chr = self.get_tx_chr();
 
@@ -526,7 +545,6 @@ impl FlipperBle {
         Ok(())
     }
 
-    // TODO: calculate time skew like qFlipper does?
     /// Sync the Flipper's date and time to the computer's date and time.
     pub async fn sync_datetime(&mut self) -> Result<(), Box<dyn Error>> {
         // things in this function are a little out of order for
@@ -564,6 +582,7 @@ impl FlipperBle {
             },
         };
 
+        // recalculate time for update
         now = chrono::Local::now();
         let packet = self.proto.create_set_datetime_request_packet(now.into())?;
         self.flipper.write(&rx_chr, &packet, WriteType::WithoutResponse).await?;

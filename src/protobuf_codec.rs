@@ -19,6 +19,8 @@ use crate::flipper_pb;
 // that seems to just work.
 pub const PROTOBUF_CHUNK_SIZE: usize = 350;
 
+//pub const PROTOBUF_CHUNK_SIZE: usize = 50;
+
 
 pub struct ProtobufCodec {
     // command_id is uint32 in protobuf definition
@@ -83,6 +85,10 @@ impl ProtobufCodec {
     ///
     /// * `path`: Full Flipper path or builtin app name to launch.
     pub fn create_launch_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+        if path.len() > PROTOBUF_CHUNK_SIZE {
+            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+        }
+        
         let launch_request = flipper_pb::application::StartRequest {
             // builtin apps can be launched by name, external ones need a full path
             name: path.to_string(),
@@ -106,6 +112,10 @@ impl ProtobufCodec {
     /// protobuf packet for a specific path to send to the Flipper, or
     /// an error if encoding failed. The path must be less than PROTOBUF_CHUNK_SIZE.
     pub fn create_list_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+        if path.len() > PROTOBUF_CHUNK_SIZE {
+            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+        }
+        
         let list_request = flipper_pb::storage::ListRequest {
             path: path.to_string(),
             ..Default::default()
@@ -137,7 +147,11 @@ impl ProtobufCodec {
         &mut self,
         file_data: &[u8],
         dest_path: &str) -> Result<Vec<ProtobufWriteRequestChunk>, Box<dyn Error>> {
-        
+
+        if dest_path.len() > PROTOBUF_CHUNK_SIZE {
+            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+        }
+
         let mut packet_stream = Vec::new();
 
         // Workaround: an empty file will cause the loop to never
@@ -219,6 +233,10 @@ impl ProtobufCodec {
 
     /// Returns a Vec<u8> of an encoded StorageReadRequest for the file at `path`.
     pub fn create_read_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+        if path.len() > PROTOBUF_CHUNK_SIZE {
+            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+        }
+
         let read_request = flipper_pb::storage::ReadRequest {
             path: path.to_string(),
 
@@ -237,6 +255,10 @@ impl ProtobufCodec {
 
     /// Returns a Vec<u8> of an encoded StorageStatRequest for the file at `path`.
     pub fn create_stat_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+        if path.len() > PROTOBUF_CHUNK_SIZE {
+            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+        }
+
         let stat_request = flipper_pb::storage::StatRequest {
             path: path.to_string(),
 
@@ -253,6 +275,33 @@ impl ProtobufCodec {
         Ok(final_vec)
     }
 
+    /// Returns a Vec<u8> of an encoded StorageDeleteRequest for the
+    /// file at `path`. `recursive` specifies that the directory (if
+    /// `path` is one) should be deleted recursively.
+    pub fn create_delete_request_packet(&mut self, path: &str, recursive: bool) -> Result<Vec<u8>, Box<dyn Error>> {
+        if path.len() > PROTOBUF_CHUNK_SIZE {
+            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+        }
+
+        let delete_request = flipper_pb::storage::DeleteRequest {
+            path: path.to_string(),
+            recursive: recursive,
+
+            ..Default::default()
+        };
+        
+        let mut final_msg = self.new_blank_packet(true);
+
+        final_msg.content = Some(
+            flipper_pb::flipper::main::Content::StorageDeleteRequest(delete_request));
+        debug!("delete request: {:?}", final_msg);
+        let mut final_vec = Vec::new();
+
+        final_msg.write_length_delimited_to_vec(&mut final_vec)?;
+
+        Ok(final_vec)
+    }
+    
     /// Returns a Vec<u8> of an encoded PlayAudiovisualAlertRequest.
     pub fn create_alert_request_packet(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut final_msg = self.new_blank_packet(true);
@@ -306,6 +355,7 @@ impl ProtobufCodec {
         Ok(final_vec)
     }
 
+    /// Returns a Vec<u8> of an encoded GetDatetimeRequest packet.
     pub fn create_get_datetime_request_packet(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut final_msg = self.new_blank_packet(true);
 
@@ -413,9 +463,10 @@ fn protobuf_codec_read_request_test() {
     let mut p = ProtobufCodec::new();
     p.inc_command_id();
     let path = "/ext/apps/GPIO/ublox.fap";
-    let launch_packet = p.create_list_request_packet(path).unwrap();
-    
-    match ProtobufCodec::parse_response(&launch_packet) {
+    let read_packet = p.create_read_request_packet(path).unwrap();
+
+    //println!("{:?}", read_packet);
+    match ProtobufCodec::parse_response(&read_packet) {
         Ok(m) => {
             if let Some(flipper_pb::flipper::main::Content::StorageReadRequest(r)) = m.1.content {
                 assert_eq!(1, m.1.command_id);
@@ -440,6 +491,27 @@ pub fn protobuf_codec_stat_request_test() {
             if let Some(flipper_pb::flipper::main::Content::StorageReadRequest(r)) = m.1.content {
                 assert_eq!(1, m.1.command_id);
                 assert_eq!(path, r.path);
+            }
+        },
+        Err(e) => {
+            panic!("error {:?}", e);
+        }
+    };
+}
+
+#[test]
+pub fn protobuf_codec_delete_request_test() {
+    let mut p = ProtobufCodec::new();
+    p.inc_command_id();
+    let path = "/ext/apps/GPIO/ublox.fap";
+    let delete_packet = p.create_delete_request_packet(path, true).unwrap();
+
+    match ProtobufCodec::parse_response(&delete_packet) {
+        Ok(m) => {
+            if let Some(flipper_pb::flipper::main::Content::StorageDeleteRequest(r)) = m.1.content {
+                assert_eq!(1, m.1.command_id);
+                assert_eq!(path, r.path);
+                assert_eq!(true, r.recursive);
             }
         },
         Err(e) => {
