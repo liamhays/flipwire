@@ -84,11 +84,8 @@ impl ProtobufCodec {
     /// # Arguments
     ///
     /// * `path`: Full Flipper path or builtin app name to launch.
-    pub fn create_launch_request_packet(&mut self, path: &str, args: &str) -> Result<Vec<u8>, Box<dyn Error>> {
-        if path.len() + args.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Path and args too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
-        }
-        
+    //pub fn create_launch_request_packet(&mut self, path: &str, args: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub fn create_launch_request_packet(&mut self, path: &str, args: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
         let launch_request = flipper_pb::application::StartRequest {
             // builtin apps can be launched by name, external ones need a full path
             name: path.to_string(),
@@ -107,7 +104,14 @@ impl ProtobufCodec {
         // varint at the start of the Vec
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
-        Ok(final_vec)
+        //if final_vec.len() > PROTOBUF_CHUNK_SIZE {
+        let vecs: Vec<Vec<u8>> = final_vec.chunks(PROTOBUF_CHUNK_SIZE).map(|x| x.to_vec()).collect();
+        println!("vecs: {:?}", vecs);
+        Ok(vecs)
+    //} else {
+      //      Ok(final_vec)
+       // }
+
     }
 
     /// Returns a Vec<u8> containing an encoded StorageListRequest
@@ -287,7 +291,7 @@ impl ProtobufCodec {
 
         let delete_request = flipper_pb::storage::DeleteRequest {
             path: path.to_string(),
-            recursive: recursive,
+            recursive,
 
             ..Default::default()
         };

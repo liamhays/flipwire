@@ -120,7 +120,7 @@ async fn main() {
                 }
             };
         },
-        
+
         Commands::Launch { app, args } => {
 	    println!("running with args {:?}", args);
             match flipper.launch(app, args).await {

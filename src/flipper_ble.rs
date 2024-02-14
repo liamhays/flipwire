@@ -428,13 +428,19 @@ impl FlipperBle {
     /// # Arguments
     ///
     /// `app`: Flipper path to .fap file to launch
+    /// `args`: Arguments to the app, can be blank
     pub async fn launch(&mut self, app: &str, args: &str) -> Result<(), Box<dyn Error>> {
         let rx_chr = self.get_rx_chr();
         let tx_chr = self.get_tx_chr();
 
         let launch_packet = self.proto.create_launch_request_packet(app, args)?;
-        debug!("encoded launch request: {:?}", format_u8_slice(&launch_packet));
-        self.flipper.write(&rx_chr, &launch_packet, WriteType::WithoutResponse).await?;
+        //debug!("encoded launch request: {:?}", format_u8_slice(&launch_packet));
+        for chunk in launch_packet {
+            self.flipper.write(&rx_chr, &chunk, WriteType::WithoutResponse).await?;
+            // 20 ms seems to work, this is all going into Flipper
+            // memory anyway so it's quick
+            time::sleep(Duration::from_millis(20)).await;
+        }
 
         // we're expecting just an Ok or something similarly short, so we don't need the loop
         let response = self.flipper.read(&tx_chr).await?;
