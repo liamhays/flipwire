@@ -92,6 +92,7 @@ impl ProtobufCodec {
         let launch_request = flipper_pb::application::StartRequest {
             // builtin apps can be launched by name, external ones need a full path
             name: path.to_string(),
+            // TODO: "args" allows you to, for example, launch a file in an app
             ..Default::default()
         };
 

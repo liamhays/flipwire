@@ -1,5 +1,4 @@
-// These are declared globally so that everything can use them,
-// especially `flipper_pb`.
+// Declare globally for max access
 mod flipper_pb;
 mod flipper_ble;
 mod protobuf_codec;
@@ -8,7 +7,6 @@ use std::path::PathBuf;
 use std::process;
 use std::env;
 
-// We have to use tokio, even though it's big, because bluez-async relies on it.
 use tokio;
 use clap::{Parser, Subcommand};
 
@@ -37,24 +35,21 @@ enum Commands {
         /// Flipper file or directory to delete
         file: String,
     },
-    /// Upload a file to the Flipper and attempt to launch it as an app
-    Ul {
-        /// Local file to upload
-        file: PathBuf,
-        /// Full Flipper path including filename to upload to
-        dest: String
-    },
     /// Launch an app on the Flipper
     Launch {
         /// A full path ("/ext/apps/...") or the name of a built-in
         /// app (i.e., "NFC")
         app: String,
+	/// Arguments to run the app with. For example, a file to
+	/// launch in the app.
+	#[arg(default_value = "")]
+	args: String,
     },
 
 
     /// Get a file listing of a Flipper directory
     Ls {
-        #[arg(default_value="/ext")]
+        #[arg(default_value = "/ext")]
         path: String,
     },
 
@@ -126,7 +121,8 @@ async fn main() {
             };
         },
         
-        Commands::Launch { app } => {
+        Commands::Launch { app, args } => {
+	    println!("running with args {:?}", args);
             match flipper.launch(app).await {
                 Ok(()) => {
                     info!("launched app successfully");
@@ -168,27 +164,8 @@ async fn main() {
                     error!("failed to send file: {}", e);
                 }
             };
-        },
-        
-        Commands::Ul { file, dest } => {
-            match flipper.upload_file(file, dest).await {
-                Ok(()) => {
-                    info!("sent file successfully");
-                },
-                Err(e) => {
-                    error!("failed to send file: {}", e);
-                }
-            };
-
-            match flipper.launch(dest).await {
-                Ok(()) => {
-                    info!("file started!");
-                },
-                Err(e) => {
-                    error!("failed to launch app: {}", e);
-                }
-            };
-        },
+	},
+	
         Commands::Alert {} => {
             match flipper.alert().await {
                 Ok(()) => {

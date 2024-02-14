@@ -209,7 +209,7 @@ impl FlipperBle {
         // get filesize for the progress bar
         let filesize = fs::metadata(file)?.len();
         let file_contents = fs::read(file)?;
-        
+
         let write_request_chunks =
             self.proto.create_write_request_packets(&file_contents, dest)?;
         debug!("sending {} packets total", write_request_chunks.len());
