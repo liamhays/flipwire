@@ -84,15 +84,16 @@ impl ProtobufCodec {
     /// # Arguments
     ///
     /// * `path`: Full Flipper path or builtin app name to launch.
-    pub fn create_launch_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
-        if path.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+    pub fn create_launch_request_packet(&mut self, path: &str, args: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+        if path.len() + args.len() > PROTOBUF_CHUNK_SIZE {
+            return Err(format!("Path and args too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
         }
         
         let launch_request = flipper_pb::application::StartRequest {
             // builtin apps can be launched by name, external ones need a full path
             name: path.to_string(),
-            // TODO: "args" allows you to, for example, launch a file in an app
+            args: args.to_string(),
+            
             ..Default::default()
         };
 
@@ -383,73 +384,28 @@ impl ProtobufCodec {
 
 
 // Function (unit?) tests!
-    
-#[test]
-fn protobuf_codec_launch_request_test() {
-    // check that data can be loaded in and out, from protobuf form to byte data
-    let mut p = ProtobufCodec::new();
-    // include command id increment in all tests
-    p.inc_command_id();
-    let path = "/ext/app.fap";
-    
-    let launch_packet = p.create_launch_request_packet(path).unwrap();
-    match ProtobufCodec::parse_response(&launch_packet) {
-        Ok(m) => {
-            if let Some(flipper_pb::flipper::main::Content::AppStartRequest(r)) = m.1.content {
-                assert_eq!(1, m.1.command_id);
-                assert_eq!(path, r.name);
-            }
-        },
-        Err(e) => {
-            panic!("error {:?}", e);
-        }
-    };
-}
 
-#[test]
-fn protobuf_codec_list_packet_test() {
-    let mut p = ProtobufCodec::new();
-    let path = "/ext/apps";
-    p.inc_command_id();
-    let launch_packet = p.create_list_request_packet(path).unwrap();
-    
-    match ProtobufCodec::parse_response(&launch_packet) {
-        Ok(m) => {
-            if let Some(flipper_pb::flipper::main::Content::StorageListRequest(r)) = m.1.content {
-                assert_eq!(1, m.1.command_id);
-                assert_eq!(path, r.path);
-            }
-        },
-        Err(e) => {
-            panic!("error {:?}", e);
-        }
-    };
-    
-}
 
-#[test]
-fn protobuf_codec_write_request_packet_test() {
-    // generate some data, package it up, then check to see if the
-    // data chunks match the original data
-    let mut p = ProtobufCodec::new();
-    p.inc_command_id();
+#[cfg(test)]
+mod tests {
+    use super::*;
     
-    let mut data = Vec::new();
-    for i in 0..1023 {
-        data.push(i as u8);
-    }
-
-    let write_request_packets =
-        p.create_write_request_packets(&data, "/ext/data.dat").unwrap();
-
-    let mut index = 0;
-    for p in write_request_packets {
-        match ProtobufCodec::parse_response(&p.packet) {
+    #[test]
+    fn protobuf_codec_launch_request_test() {
+        // check that data can be loaded in and out, from protobuf form to byte data
+        let mut p = ProtobufCodec::new();
+        // include command id increment in all tests
+        p.inc_command_id();
+        let path = "/ext/app.fap";
+        let args = "/ext/chungus_app.fap";
+        let launch_packet = p.create_launch_request_packet(path, args).unwrap();
+        match ProtobufCodec::parse_response(&launch_packet) {
             Ok(m) => {
-                if let Some(flipper_pb::flipper::main::Content::StorageWriteRequest(r)) = m.1.content {
+                if let Some(flipper_pb::flipper::main::Content::AppStartRequest(r)) = m.1.content {
                     assert_eq!(1, m.1.command_id);
-                    assert_eq!(r.file.data, data[index..index+p.file_byte_count]);
-                    index += p.file_byte_count;
+                    assert_eq!(path, r.name);
+                } else {
+                    panic!("wrong type of protobuf message");
                 }
             },
             Err(e) => {
@@ -457,148 +413,216 @@ fn protobuf_codec_write_request_packet_test() {
             }
         };
     }
-}
 
-#[test]
-fn protobuf_codec_read_request_test() {
-    let mut p = ProtobufCodec::new();
-    p.inc_command_id();
-    let path = "/ext/apps/GPIO/ublox.fap";
-    let read_packet = p.create_read_request_packet(path).unwrap();
-
-    //println!("{:?}", read_packet);
-    match ProtobufCodec::parse_response(&read_packet) {
-        Ok(m) => {
-            if let Some(flipper_pb::flipper::main::Content::StorageReadRequest(r)) = m.1.content {
-                assert_eq!(1, m.1.command_id);
-                assert_eq!(path, r.path);
+    #[test]
+    fn protobuf_codec_list_packet_test() {
+        let mut p = ProtobufCodec::new();
+        let path = "/ext/apps";
+        p.inc_command_id();
+        let launch_packet = p.create_list_request_packet(path).unwrap();
+        
+        match ProtobufCodec::parse_response(&launch_packet) {
+            Ok(m) => {
+                if let Some(flipper_pb::flipper::main::Content::StorageListRequest(r)) = m.1.content {
+                    assert_eq!(1, m.1.command_id);
+                    assert_eq!(path, r.path);
+                } else {
+                    panic!("wrong type of protobuf message");
+                }
+            },
+            Err(e) => {
+                panic!("error {:?}", e);
             }
-        },
-        Err(e) => {
-            panic!("error {:?}", e);
+        };
+        
+    }
+
+    #[test]
+    fn protobuf_codec_write_request_test() {
+        // generate some data, package it up, then check to see if the
+        // data chunks match the original data
+        let mut p = ProtobufCodec::new();
+        p.inc_command_id();
+        
+        let mut data = Vec::new();
+        for i in 0..1023 {
+            data.push(i as u8);
         }
-    };
-}
 
-#[test]
-pub fn protobuf_codec_stat_request_test() {
-    let mut p = ProtobufCodec::new();
-    p.inc_command_id();
-    let path = "/ext/apps/GPIO/ublox.fap";
-    let launch_packet = p.create_list_request_packet(path).unwrap();
+        let write_request_packets =
+            p.create_write_request_packets(&data, "/ext/data.dat").unwrap();
 
-    match ProtobufCodec::parse_response(&launch_packet) {
-        Ok(m) => {
-            if let Some(flipper_pb::flipper::main::Content::StorageReadRequest(r)) = m.1.content {
-                assert_eq!(1, m.1.command_id);
-                assert_eq!(path, r.path);
+        let mut index = 0;
+        for p in write_request_packets {
+            match ProtobufCodec::parse_response(&p.packet) {
+                Ok(m) => {
+                    if let Some(flipper_pb::flipper::main::Content::StorageWriteRequest(r)) = m.1.content {
+                        assert_eq!(1, m.1.command_id);
+                        assert_eq!(r.file.data, data[index..index+p.file_byte_count]);
+                        index += p.file_byte_count;
+                    } else {
+                        panic!("wrong type of protobuf message");
+                    }
+                },
+                Err(e) => {
+                    panic!("error {:?}", e);
+                }
+            };
+        }
+    }
+
+    #[test]
+    fn protobuf_codec_read_request_test() {
+        let mut p = ProtobufCodec::new();
+        p.inc_command_id();
+        let path = "/ext/apps/GPIO/ublox.fap";
+        let read_packet = p.create_read_request_packet(path).unwrap();
+
+        //println!("{:?}", read_packet);
+        match ProtobufCodec::parse_response(&read_packet) {
+            Ok(m) => {
+                if let Some(flipper_pb::flipper::main::Content::StorageReadRequest(r)) = m.1.content {
+                    assert_eq!(1, m.1.command_id);
+                    assert_eq!(path, r.path);
+                } else {
+                    panic!("wrong type of protobuf message");
+                }
+            },
+            Err(e) => {
+                panic!("error {:?}", e);
             }
-        },
-        Err(e) => {
-            panic!("error {:?}", e);
-        }
-    };
-}
+        };
+    }
 
-#[test]
-pub fn protobuf_codec_delete_request_test() {
-    let mut p = ProtobufCodec::new();
-    p.inc_command_id();
-    let path = "/ext/apps/GPIO/ublox.fap";
-    let delete_packet = p.create_delete_request_packet(path, true).unwrap();
+    #[test]
+    pub fn protobuf_codec_stat_request_test() {
+        let mut p = ProtobufCodec::new();
+        p.inc_command_id();
+        let path = "/ext/apps/GPIO/ublox.fap";
+        let stat_packet = p.create_stat_request_packet(path).unwrap();
 
-    match ProtobufCodec::parse_response(&delete_packet) {
-        Ok(m) => {
-            if let Some(flipper_pb::flipper::main::Content::StorageDeleteRequest(r)) = m.1.content {
-                assert_eq!(1, m.1.command_id);
-                assert_eq!(path, r.path);
-                assert_eq!(true, r.recursive);
+        match ProtobufCodec::parse_response(&stat_packet) {
+            Ok(m) => {
+                if let Some(flipper_pb::flipper::main::Content::StorageStatRequest(r)) = m.1.content {
+                    assert_eq!(1, m.1.command_id);
+                    assert_eq!(path, r.path);
+                } else {
+                    panic!("wrong type of protobuf message");
+                }
+            },
+            Err(e) => {
+                panic!("error {:?}", e);
             }
-        },
-        Err(e) => {
-            panic!("error {:?}", e);
-        }
-    };
-}
+        };
+    }
 
-#[test]
-pub fn protobuf_codec_alert_request_test() {
-    let mut p = ProtobufCodec::new();
-    p.inc_command_id();
-    let alert_packet = p.create_alert_request_packet().unwrap();
+    #[test]
+    pub fn protobuf_codec_delete_request_test() {
+        let mut p = ProtobufCodec::new();
+        p.inc_command_id();
+        let path = "/ext/apps/GPIO/ublox.fap";
+        let delete_packet = p.create_delete_request_packet(path, true).unwrap();
+
+        match ProtobufCodec::parse_response(&delete_packet) {
+            Ok(m) => {
+                if let Some(flipper_pb::flipper::main::Content::StorageDeleteRequest(r)) = m.1.content {
+                    assert_eq!(1, m.1.command_id);
+                    assert_eq!(path, r.path);
+                    assert_eq!(true, r.recursive);
+                } else {
+                    panic!("wrong type of protobuf message");
+                }
+            },
+            Err(e) => {
+                panic!("error {:?}", e);
+            }
+        };
+    }
+
+    #[test]
+    pub fn protobuf_codec_alert_request_test() {
+        let mut p = ProtobufCodec::new();
+        p.inc_command_id();
+        let alert_packet = p.create_alert_request_packet().unwrap();
+        
+        match ProtobufCodec::parse_response(&alert_packet) {
+            Ok(m) => {
+                if let Some(flipper_pb::flipper::main::Content::SystemPlayAudiovisualAlertRequest(_)) = m.1.content {
+                    assert_eq!(1, m.1.command_id);
+                } else {
+                    panic!("unexpected type decoded!");
+                }
+            },
+            Err(e) => {
+                panic!("error {:?}", e);
+            }
+        };
+    }
+
+
+    #[test]
+    pub fn protobuf_codec_set_datetime_request_test() {
+        let mut p = ProtobufCodec::new();
+        p.inc_command_id();
+        let datetime = chrono::DateTime::parse_from_rfc2822("Mon, 29 Jan 2024 10:39:45 -0700").unwrap();
+        let datetime_packet = p.create_set_datetime_request_packet(datetime).unwrap();
+
+        match ProtobufCodec::parse_response(&datetime_packet) {
+            Ok(m) => {
+                if let Some(flipper_pb::flipper::main::Content::SystemSetDatetimeRequest(r)) = m.1.content {
+                    assert_eq!(r.datetime.hour, datetime.hour());
+                    assert_eq!(r.datetime.minute, datetime.minute());
+                    assert_eq!(r.datetime.second, datetime.second());
+                    assert_eq!(r.datetime.day, datetime.day());
+                    assert_eq!(r.datetime.month, datetime.month());
+                    assert_eq!(r.datetime.year, datetime.year() as u32);
+                    assert_eq!(r.datetime.weekday, datetime.weekday().number_from_monday());
+                    assert_eq!(1, m.1.command_id);
+                } else {
+                    panic!("wrong type of protobuf message");
+                }
+            },
+            Err(e) => {
+                panic!("error {:?}", e);
+            }
+        };
+    }
+
+    #[test]
+    pub fn protobuf_codec_get_datetime_request_test() {
+        let mut p = ProtobufCodec::new();
+        p.inc_command_id();
+        let datetime_packet = p.create_get_datetime_request_packet().unwrap();
+
+        match ProtobufCodec::parse_response(&datetime_packet) {
+            Ok(m) => {
+                if let Some(flipper_pb::flipper::main::Content::SystemGetDatetimeRequest(_)) = m.1.content {
+                    assert_eq!(1, m.1.command_id);
+                } else {
+                    panic!("wrong type of protobuf message");
+                }
+            },
+            Err(e) => {
+                panic!("error {:?}", e);
+            }
+        };
+    }
     
-    match ProtobufCodec::parse_response(&alert_packet) {
-        Ok(m) => {
-            if let Some(flipper_pb::flipper::main::Content::SystemPlayAudiovisualAlertRequest(_)) = m.1.content {
-                assert_eq!(1, m.1.command_id);
-            } else {
-                panic!("unexpected type decoded!");
+    #[test]
+    fn bad_data_test() {
+        // force the whole thing to u8
+        // the original data is from a StorageListRequest of "/ext/apps/NFC/"
+        //let dat = [18u8, 58, 16, 10, 14, 47, 101, 120, 116, 47, 97, 112, 112, 115, 47, 78, 70, 67, 47];
+        let dat = [18u8, 0, 16, 10, 14, 47, 101, 120, 116, 47, 97, 112, 112, 115, 47, 78, 70, 67, 47];
+
+        match ProtobufCodec::parse_response(&dat) {
+            Ok(_) => {
+                panic!("parse of bad data succeeded!");
+            },
+            Err(_) => {
+                // nothing to do here
             }
-        },
-        Err(e) => {
-            panic!("error {:?}", e);
-        }
-    };
-}
+        };
+    }
 
-
-#[test]
-pub fn protobuf_codec_set_datetime_request_test() {
-    let mut p = ProtobufCodec::new();
-    p.inc_command_id();
-    let datetime = chrono::DateTime::parse_from_rfc2822("Mon, 29 Jan 2024 10:39:45 -0700").unwrap();
-    let datetime_packet = p.create_set_datetime_request_packet(datetime).unwrap();
-
-    match ProtobufCodec::parse_response(&datetime_packet) {
-        Ok(m) => {
-            if let Some(flipper_pb::flipper::main::Content::SystemSetDatetimeRequest(r)) = m.1.content {
-                assert_eq!(r.datetime.hour, datetime.hour());
-                assert_eq!(r.datetime.minute, datetime.minute());
-                assert_eq!(r.datetime.second, datetime.second());
-                assert_eq!(r.datetime.day, datetime.day());
-                assert_eq!(r.datetime.month, datetime.month());
-                assert_eq!(r.datetime.year, datetime.year() as u32);
-                assert_eq!(r.datetime.weekday, datetime.weekday().number_from_monday());
-                assert_eq!(1, m.1.command_id);
-            }
-        },
-        Err(e) => {
-            panic!("error {:?}", e);
-        }
-    };
-}
-
-#[test]
-pub fn protobuf_codec_get_datetime_request_test() {
-    let mut p = ProtobufCodec::new();
-    p.inc_command_id();
-    let datetime_packet = p.create_get_datetime_request_packet().unwrap();
-
-    match ProtobufCodec::parse_response(&datetime_packet) {
-        Ok(m) => {
-            if let Some(flipper_pb::flipper::main::Content::SystemGetDatetimeRequest(_)) = m.1.content {
-                assert_eq!(1, m.1.command_id);
-            }
-        },
-        Err(e) => {
-            panic!("error {:?}", e);
-        }
-    };
-}
-    
-#[test]
-fn bad_data_test() {
-    // force the whole thing to u8
-    // the original data is from a StorageListRequest of "/ext/apps/NFC/"
-    //let dat = [18u8, 58, 16, 10, 14, 47, 101, 120, 116, 47, 97, 112, 112, 115, 47, 78, 70, 67, 47];
-    let dat = [18u8, 0, 16, 10, 14, 47, 101, 120, 116, 47, 97, 112, 112, 115, 47, 78, 70, 67, 47];
-
-    match ProtobufCodec::parse_response(&dat) {
-        Ok(_) => {
-            panic!("parse of bad data succeeded!");
-        },
-        Err(_) => {
-            // nothing to do here
-        }
-    };
 }
