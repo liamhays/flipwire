@@ -428,11 +428,11 @@ impl FlipperBle {
     /// # Arguments
     ///
     /// `app`: Flipper path to .fap file to launch
-    pub async fn launch(&mut self, app: &str) -> Result<(), Box<dyn Error>> {
+    pub async fn launch(&mut self, app: &str, args: &str) -> Result<(), Box<dyn Error>> {
         let rx_chr = self.get_rx_chr();
         let tx_chr = self.get_tx_chr();
 
-        let launch_packet = self.proto.create_launch_request_packet(app)?;
+        let launch_packet = self.proto.create_launch_request_packet(app, args)?;
         debug!("encoded launch request: {:?}", format_u8_slice(&launch_packet));
         self.flipper.write(&rx_chr, &launch_packet, WriteType::WithoutResponse).await?;
 
@@ -441,12 +441,15 @@ impl FlipperBle {
         let pb_response = ProtobufCodec::parse_response(&response)?;
         debug!("response received: {:?}", pb_response);
 
+        // TODO: what is the response if you try to open a nonexistent file in a correctly named app?
         if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::OK.into() {
             Ok(())
         } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_INVALID_PARAMETERS.into() {
             Err("Application path is invalid!".into())
         } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_APP_CANT_START.into() {
             Err("App can't start! Did you specify the path to a Flipper app?".into())
+        } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_APP_SYSTEM_LOCKED.into() {
+            Err("Another app is already running! Close it and try again.".into())
         } else {
             Err(format!("Flipper returned unexpected response: {:?}", pb_response).into())
         }
