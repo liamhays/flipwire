@@ -76,10 +76,10 @@ impl ProtobufCodec {
 
         Ok(final_vec)
     }
-    /// Returns a Vec<u8> containing an encoded AppStartRequest
+    /// Returns a Vec<Vec<u8>> containing an encoded AppStartRequest
     /// protobuf packet to send to the Flipper, or an error if
-    /// encoding failed (very unlikely). The app path (or name if it's
-    /// a builtin app) must be less than PROTOBUF_CHUNK_SIZE.
+    /// encoding failed (very unlikely). Send all nested Vecs
+    /// consecutively.
     ///
     /// # Arguments
     ///
@@ -104,20 +104,25 @@ impl ProtobufCodec {
         // varint at the start of the Vec
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
-        //if final_vec.len() > PROTOBUF_CHUNK_SIZE {
-        let vecs: Vec<Vec<u8>> = final_vec.chunks(PROTOBUF_CHUNK_SIZE).map(|x| x.to_vec()).collect();
-        println!("vecs: {:?}", vecs);
+        // if there's just one chunk, .chunks() will make just one chunk.
+        let vecs: Vec<Vec<u8>> = final_vec
+            .chunks(PROTOBUF_CHUNK_SIZE)
+            .map(|x| x.to_vec())
+            .collect();
+        
         Ok(vecs)
-    //} else {
-      //      Ok(final_vec)
-       // }
 
     }
 
-    /// Returns a Vec<u8> containing an encoded StorageListRequest
-    /// protobuf packet for a specific path to send to the Flipper, or
-    /// an error if encoding failed. The path must be less than PROTOBUF_CHUNK_SIZE.
-    pub fn create_list_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    /// Returns a Vec<Vec<u8>> containing an encoded
+    /// StorageListRequest protobuf packet for a specific path to send
+    /// to the Flipper, or an error if encoding failed. Send all
+    /// nested Vecs consecutively.
+    ///
+    /// # Arguments
+    ///
+    /// `path`: File to get stats about
+    pub fn create_list_request_packet(&mut self, path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
         if path.len() > PROTOBUF_CHUNK_SIZE {
             return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
         }
@@ -133,7 +138,12 @@ impl ProtobufCodec {
         let mut final_vec = Vec::new();
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
-        Ok(final_vec)
+        let vecs: Vec<Vec<u8>> = final_vec
+            .chunks(PROTOBUF_CHUNK_SIZE)
+            .map(|x| x.to_vec())
+            .collect();
+        
+        Ok(vecs)
     }
     
     /// Returns a Vec<Vec<u8>> of encoded StorageWriteRequest packets
@@ -154,6 +164,7 @@ impl ProtobufCodec {
         file_data: &[u8],
         dest_path: &str) -> Result<Vec<ProtobufWriteRequestChunk>, Box<dyn Error>> {
 
+        todo!("hey you need to fix this!");
         if dest_path.len() > PROTOBUF_CHUNK_SIZE {
             return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
         }
@@ -237,8 +248,9 @@ impl ProtobufCodec {
         Ok(packet_stream)
     }
 
-    /// Returns a Vec<u8> of an encoded StorageReadRequest for the file at `path`.
-    pub fn create_read_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    /// Returns a Vec<Vec<u8>> of an encoded StorageReadRequest for
+    /// the file at `path`. Send all nested Vecs consecutively.
+    pub fn create_read_request_packet(&mut self, path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
         if path.len() > PROTOBUF_CHUNK_SIZE {
             return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
         }
@@ -256,11 +268,17 @@ impl ProtobufCodec {
         
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
-        Ok(final_vec)
+        let vecs: Vec<Vec<u8>> = final_vec
+            .chunks(PROTOBUF_CHUNK_SIZE)
+            .map(|x| x.to_vec())
+            .collect();
+        
+        Ok(vecs)
     }
 
-    /// Returns a Vec<u8> of an encoded StorageStatRequest for the file at `path`.
-    pub fn create_stat_request_packet(&mut self, path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    /// Returns a Vec<u8> of an encoded StorageStatRequest for the
+    /// file at `path`. Send all nested Vecs consecutively.
+    pub fn create_stat_request_packet(&mut self, path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
         if path.len() > PROTOBUF_CHUNK_SIZE {
             return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
         }
@@ -278,13 +296,19 @@ impl ProtobufCodec {
         
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
-        Ok(final_vec)
+        let vecs: Vec<Vec<u8>> = final_vec
+            .chunks(PROTOBUF_CHUNK_SIZE)
+            .map(|x| x.to_vec())
+            .collect();
+        
+        Ok(vecs)
     }
 
     /// Returns a Vec<u8> of an encoded StorageDeleteRequest for the
     /// file at `path`. `recursive` specifies that the directory (if
-    /// `path` is one) should be deleted recursively.
-    pub fn create_delete_request_packet(&mut self, path: &str, recursive: bool) -> Result<Vec<u8>, Box<dyn Error>> {
+    /// `path` is one) should be deleted recursively. Send all nested
+    /// Vecs consecutively.
+    pub fn create_delete_request_packet(&mut self, path: &str, recursive: bool) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
         if path.len() > PROTOBUF_CHUNK_SIZE {
             return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
         }
@@ -305,10 +329,17 @@ impl ProtobufCodec {
 
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
-        Ok(final_vec)
+        let vecs: Vec<Vec<u8>> = final_vec
+            .chunks(PROTOBUF_CHUNK_SIZE)
+            .map(|x| x.to_vec())
+            .collect();
+        
+        Ok(vecs)
+
     }
     
     /// Returns a Vec<u8> of an encoded PlayAudiovisualAlertRequest.
+    /// No need for chunking, because there's no arguments.
     pub fn create_alert_request_packet(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut final_msg = self.new_blank_packet(true);
         // we can combine this because PlayAudiovisualAlertRequest has no fields
@@ -323,7 +354,8 @@ impl ProtobufCodec {
     }
 
     /// Returns a Vec<u8> of an encoded SetDatetimeRequest with the
-    /// datetime arguments set to the fields in `datetime`.
+    /// datetime arguments set to the fields in `datetime`. No need
+    /// for chunking, this command is always the same size.
     pub fn create_set_datetime_request_packet(&mut self, datetime: chrono::DateTime<chrono::FixedOffset>) -> Result<Vec<u8>, Box<dyn Error>> {
 
         // SetDatetimeRequest is a thin wrapper around
@@ -361,7 +393,8 @@ impl ProtobufCodec {
         Ok(final_vec)
     }
 
-    /// Returns a Vec<u8> of an encoded GetDatetimeRequest packet.
+    /// Returns a Vec<u8> of an encoded GetDatetimeRequest packet. No
+    /// chunking, because there's no arguments.
     pub fn create_get_datetime_request_packet(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut final_msg = self.new_blank_packet(true);
 
@@ -402,7 +435,11 @@ mod tests {
         p.inc_command_id();
         let path = "/ext/app.fap";
         let args = "/ext/chungus_app.fap";
-        let launch_packet = p.create_launch_request_packet(path, args).unwrap();
+        let mut launch_chunks = p.create_launch_request_packet(path, args).unwrap();
+        
+        let mut launch_packet = Vec::new();
+        launch_chunks.iter_mut().for_each(|x| launch_packet.append(&mut *x));
+        
         match ProtobufCodec::parse_response(&launch_packet) {
             Ok(m) => {
                 if let Some(flipper_pb::flipper::main::Content::AppStartRequest(r)) = m.1.content {
@@ -423,9 +460,12 @@ mod tests {
         let mut p = ProtobufCodec::new();
         let path = "/ext/apps";
         p.inc_command_id();
-        let launch_packet = p.create_list_request_packet(path).unwrap();
-        
-        match ProtobufCodec::parse_response(&launch_packet) {
+        let mut list_chunks = p.create_list_request_packet(path).unwrap();
+
+        let mut list_packet = Vec::new();
+        list_chunks.iter_mut().for_each(|x| list_packet.append(&mut *x));
+            
+        match ProtobufCodec::parse_response(&list_packet) {
             Ok(m) => {
                 if let Some(flipper_pb::flipper::main::Content::StorageListRequest(r)) = m.1.content {
                     assert_eq!(1, m.1.command_id);
@@ -480,9 +520,11 @@ mod tests {
         let mut p = ProtobufCodec::new();
         p.inc_command_id();
         let path = "/ext/apps/GPIO/ublox.fap";
-        let read_packet = p.create_read_request_packet(path).unwrap();
-
-        //println!("{:?}", read_packet);
+        let mut read_chunks = p.create_read_request_packet(path).unwrap();
+        
+        let mut read_packet = Vec::new();
+        read_chunks.iter_mut().for_each(|x| read_packet.append(&mut *x));
+        
         match ProtobufCodec::parse_response(&read_packet) {
             Ok(m) => {
                 if let Some(flipper_pb::flipper::main::Content::StorageReadRequest(r)) = m.1.content {
@@ -503,8 +545,11 @@ mod tests {
         let mut p = ProtobufCodec::new();
         p.inc_command_id();
         let path = "/ext/apps/GPIO/ublox.fap";
-        let stat_packet = p.create_stat_request_packet(path).unwrap();
+        let mut stat_chunks = p.create_stat_request_packet(path).unwrap();
 
+        let mut stat_packet = Vec::new();
+        stat_chunks.iter_mut().for_each(|x| stat_packet.append(&mut *x));
+        
         match ProtobufCodec::parse_response(&stat_packet) {
             Ok(m) => {
                 if let Some(flipper_pb::flipper::main::Content::StorageStatRequest(r)) = m.1.content {
@@ -525,8 +570,11 @@ mod tests {
         let mut p = ProtobufCodec::new();
         p.inc_command_id();
         let path = "/ext/apps/GPIO/ublox.fap";
-        let delete_packet = p.create_delete_request_packet(path, true).unwrap();
+        let mut delete_chunks = p.create_delete_request_packet(path, true).unwrap();
 
+        let mut delete_packet = Vec::new();
+        delete_chunks.iter_mut().for_each(|x| delete_packet.append(&mut *x));
+        
         match ProtobufCodec::parse_response(&delete_packet) {
             Ok(m) => {
                 if let Some(flipper_pb::flipper::main::Content::StorageDeleteRequest(r)) = m.1.content {

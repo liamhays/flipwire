@@ -24,6 +24,8 @@ const FLIPPER_RX_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e62fe0000");
 const FLIPPER_TX_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e61fe0000");
 // flow control
 const FLIPPER_FLOW_CTRL_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e63fe0000");
+// delay used for writing chunks of a single command to a characteristic
+const FLIPPER_BLE_COMMAND_DELAY: u64 = 20;
 
 /// Representation of a Flipper device connected over Bluetooth LE
 pub struct FlipperBle {
@@ -33,7 +35,7 @@ pub struct FlipperBle {
 
 // prints a &[u8] in a style very similar to a Python bytearray
 // from https://stackoverflow.com/a/41450295
-use std::ascii::escape_default;
+/*use std::ascii::escape_default;
 fn format_u8_slice(bs: &[u8]) -> String {
     let mut visible = String::new();
     for &b in bs {
@@ -42,6 +44,7 @@ fn format_u8_slice(bs: &[u8]) -> String {
     }
     visible
 }
+ */
 
 impl FlipperBle {
     #[cfg(target_os = "windows")]
@@ -296,9 +299,9 @@ impl FlipperBle {
 
     // This is the main thing that doesn't work with Intel Stone Peak adapters.
     pub async fn download_file(&mut self, path: &str, dest: &Path) -> Result<(), Box<dyn Error>> {
-        if path.len() > PROTOBUF_CHUNK_SIZE {
+        /*if path.len() > PROTOBUF_CHUNK_SIZE {
             return Err(format!("Filename too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
-        }
+        }*/
         let rx_chr = self.get_rx_chr();
         let tx_chr = self.get_tx_chr();
 
@@ -311,10 +314,14 @@ impl FlipperBle {
         let mut stream = self.flipper.notifications().await?;
         let stat_request = self.proto.create_stat_request_packet(path)?;
 
-        debug!("encoded stat request: {:?}", format_u8_slice(&stat_request));
+        for chunk in stat_request {
+            self.flipper.write(&rx_chr, &chunk, WriteType::WithoutResponse).await?;
+            // 20 ms seems to work, this is all going into Flipper
+            // memory anyway so it's quick
+            time::sleep(Duration::from_millis(FLIPPER_BLE_COMMAND_DELAY)).await;
+        }
 
         let mut full_protobuf: Vec<u8> = Vec::new();
-        self.flipper.write(&rx_chr, &stat_request, WriteType::WithoutResponse).await?;
 
         let filesize = loop {
             if let Some(Some(response)) = stream.next().now_or_never() {
@@ -344,7 +351,13 @@ impl FlipperBle {
         // now read the contents of the file
         let read_request = self.proto.create_read_request_packet(path)?;
         
-        self.flipper.write(&rx_chr, &read_request, WriteType::WithResponse).await?;
+        for chunk in read_request {
+            self.flipper.write(&rx_chr, &chunk, WriteType::WithoutResponse).await?;
+            // 20 ms seems to work, this is all going into Flipper
+            // memory anyway so it's quick
+            time::sleep(Duration::from_millis(FLIPPER_BLE_COMMAND_DELAY)).await;
+        }
+
         time::sleep(Duration::from_millis(200)).await;
         debug!("wrote read request");
         let pb = self.make_file_progress_bar(u64::try_from(filesize)?);
@@ -406,8 +419,12 @@ impl FlipperBle {
         let tx_chr = self.get_tx_chr();
 
         let delete_packet = self.proto.create_delete_request_packet(path, recursive)?;
-        debug!("encoded delete packet: {:?}", format_u8_slice(&delete_packet));
-        self.flipper.write(&rx_chr, &delete_packet, WriteType::WithoutResponse).await?;
+        for chunk in delete_packet {
+            self.flipper.write(&rx_chr, &chunk, WriteType::WithoutResponse).await?;
+            // 20 ms seems to work, this is all going into Flipper
+            // memory anyway so it's quick
+            time::sleep(Duration::from_millis(FLIPPER_BLE_COMMAND_DELAY)).await;
+        }
 
         let response = self.flipper.read(&tx_chr).await?;
         let pb_response = ProtobufCodec::parse_response(&response)?;
@@ -434,7 +451,6 @@ impl FlipperBle {
         let tx_chr = self.get_tx_chr();
 
         let launch_packet = self.proto.create_launch_request_packet(app, args)?;
-        //debug!("encoded launch request: {:?}", format_u8_slice(&launch_packet));
         for chunk in launch_packet {
             self.flipper.write(&rx_chr, &chunk, WriteType::WithoutResponse).await?;
             // 20 ms seems to work, this is all going into Flipper
@@ -478,8 +494,12 @@ impl FlipperBle {
 
         // write the list request
         let list_packet = self.proto.create_list_request_packet(path)?;
-        debug!("encoded list packet: {:x?}", format_u8_slice(&list_packet));
-        self.flipper.write(&rx_chr, &list_packet, WriteType::WithoutResponse).await?;
+        for chunk in list_packet {
+            self.flipper.write(&rx_chr, &chunk, WriteType::WithoutResponse).await?;
+            // 20 ms seems to work, this is all going into Flipper
+            // memory anyway so it's quick
+            time::sleep(Duration::from_millis(20)).await;
+        }
 
         let mut entries = Vec::new();
 
@@ -548,6 +568,7 @@ impl FlipperBle {
     pub async fn alert(&mut self) -> Result<(), Box<dyn Error>> {
         let rx_chr = self.get_rx_chr();
 
+        // only one chunk
         let packet = self.proto.create_alert_request_packet()?;
         self.flipper.write(&rx_chr, &packet, WriteType::WithoutResponse).await?;
 
@@ -561,6 +582,7 @@ impl FlipperBle {
         let rx_chr = self.get_rx_chr();
         let tx_chr = self.get_tx_chr();
 
+        // no chunking here
         let request = self.proto.create_get_datetime_request_packet()?;
         self.flipper.write(&rx_chr, &request, WriteType::WithoutResponse).await?;
         let mut now = chrono::Local::now();
