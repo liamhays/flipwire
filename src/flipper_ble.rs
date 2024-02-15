@@ -428,9 +428,10 @@ impl FlipperBle {
 
         if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::OK.into() {
             Ok(())
+        } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_STORAGE_INVALID_NAME.into() {
+            Err("Invalid name specified!".into())
         } else {
-            info!("received response {:?}", pb_response.1.command_id);
-            Err("".into())
+            Err(format!("Flipper returned unexpected response: {:?}", pb_response).into())
         }
     }
     
@@ -456,7 +457,9 @@ impl FlipperBle {
         let pb_response = ProtobufCodec::parse_response(&response)?;
         debug!("response received: {:?}", pb_response);
 
-        // TODO: what is the response if you try to open a nonexistent file in a correctly named app?
+        // If you try to load a nonexistent file in an app, the app is
+        // the one that displays an error. No error is relayed back
+        // over RPC.
         if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::OK.into() {
             Ok(())
         } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_INVALID_PARAMETERS.into() {

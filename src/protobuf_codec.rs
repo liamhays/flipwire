@@ -17,8 +17,8 @@ use crate::flipper_pb;
 //
 // This number also affects things like lag, and 350 is a good number
 // that seems to just work.
-pub const PROTOBUF_BLE_MTU_SIZE: usize = 350;
-
+//const PROTOBUF_BLE_MTU_SIZE: usize = 350;
+pub const PROTOBUF_BLE_MTU_SIZE: usize = 25;
 // number of file bytes to write per cycle
 const PROTOBUF_FILE_WRITE_CHUNK_SIZE: usize = 512;
 
@@ -344,7 +344,9 @@ impl ProtobufCodec {
     /// Returns a Vec<u8> of an encoded SetDatetimeRequest with the
     /// datetime arguments set to the fields in `datetime`. No need
     /// for chunking, this command is always the same size.
-    pub fn create_set_datetime_request_packet(&mut self, datetime: chrono::DateTime<chrono::FixedOffset>) -> Result<Vec<u8>, Box<dyn Error>> {
+    pub fn create_set_datetime_request_packet(
+        &mut self,
+        datetime: chrono::DateTime<chrono::FixedOffset>) -> Result<Vec<u8>, Box<dyn Error>> {
 
         // SetDatetimeRequest is a thin wrapper around
         // FuriHalRtcDateTime which itself is a thin wrapper around

@@ -122,7 +122,7 @@ async fn main() {
         },
 
         Commands::Launch { app, args } => {
-	    println!("running with args {:?}", args);
+	    //println!("running with args {:?}", args);
             match flipper.launch(app, args).await {
                 Ok(()) => {
                     info!("launched app successfully");
@@ -161,7 +161,7 @@ async fn main() {
                     info!("deleted file successfully");
                 },
                 Err(e) => {
-                    error!("failed to send file: {}", e);
+                    error!("failed to delete file: {}", e);
                 }
             };
 	},
