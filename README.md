@@ -89,9 +89,8 @@ model in a new issue and I'll add it to the list above.
 
 # Troubleshooting
 Some common problems include Flipwire not finding the Flipper or
-returning an error.
-
-- Make sure the Flipper is already paired to your computer. 
+returning an error. Make sure the Flipper is already paired to your
+computer.
 
 Note that on Linux, you might need to use `bluetoothctl` instead of
 your desktop environment's Bluetooth tool. For example, the KDE
@@ -119,21 +118,25 @@ Flipwire is only intended for use with Flippers running official
 firmware. If you're using another firmware, you're on your own.
 
 # Adapter Incompatibility
-In RPC mode, the Flipper's Bluetooth implementation exhibits strange
-compatibility issues with Stone Peak series Intel Bluetooth adapters:
-the Flipper will disconnect while it's sending data with disconnect
-reason `0x08` (connection supervision timeout reached). This means
-that you can upload files, run small commands, and download small
-files without problems, but you can't download files bigger than about
-5 kB before the Flipper disconnects.
+Most Bluetooth adapters work perfectly with the Flipper. Some are more
+temperamental than others: an operation that works perfectly on one
+might require more finagling and more connect/disconnect cycles to
+work on another. Others will only work for some operations.
 
-If your adapter doesn't work, Flipwire will hang when it tries to
-download a file, because it's waiting for more data from a
-disconnected device. I *believe* that this is the fault of the core2
-coprocessor on the STM32WB55, since the Intel adapters work with every
-other device.
+The least compatible adapters I've found are Intel Stone Peak
+WiFi/Bluetooth cards. The Flipper's Bluetooth implementation exhibits
+strange compatibility issues with these: the Flipper will disconnect
+while it's sending data with disconnect reason `0x08` (connection
+supervision timeout reached). This means that you can upload files,
+run small commands, and download small files without problems, but you
+can't download files bigger than about 5 kB before the Flipper
+disconnects. I have no idea why this happens (see below).
 
-## Broken adapters
+If your adapter isn't one of the Stone Peak adapters listed below, and
+exhibits issues after pair/unpair and disconnect/connect cycles, open
+an issue and we'll add it to the incompatible list.
+
+## Broken adapter list
 These are the two models in the Intel Stone Peak series. There are
 several models of the 7265, but I've only tested the 802.11ac version
 of the 7265. However, given that both the 7265 and 3165 have the
@@ -148,6 +151,10 @@ Intel 8265 works (see below), so I think this is specific to Stone
 Peak.
 
 ## Tested working adapters
+Given that the Stone Peak adapters have issues independent of
+operating system, I assume that all adapter functionality is
+OS-agnostic, so I don't keep track of what OS I test card on.
+
 - Intel Wireless 8265
 - Intel AX200
 - Intel AX201

@@ -80,7 +80,8 @@ struct Cli {
     #[arg(short)]
     disconnect: bool,
 }
-
+// TODO: we need to do something with slashes at the end of a
+// filename, since Flipper doesn't like those.
 
 // Most of the work (including printing things like status and
 // progress bars) is done by flipper_ble.
