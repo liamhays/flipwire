@@ -124,10 +124,6 @@ impl ProtobufCodec {
     ///
     /// `path`: File to get stats about
     pub fn create_list_request_packet(&mut self, path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
-        if path.len() > PROTOBUF_BLE_MTU_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_BLE_MTU_SIZE).into());
-        }
-        
         let list_request = flipper_pb::storage::ListRequest {
             path: path.to_string(),
             ..Default::default()
@@ -255,10 +251,6 @@ impl ProtobufCodec {
     /// Returns a Vec<Vec<u8>> of an encoded StorageReadRequest for
     /// the file at `path`. Send all nested Vecs consecutively.
     pub fn create_read_request_packet(&mut self, path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
-        if path.len() > PROTOBUF_BLE_MTU_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_BLE_MTU_SIZE).into());
-        }
-
         let read_request = flipper_pb::storage::ReadRequest {
             path: path.to_string(),
 
@@ -283,10 +275,6 @@ impl ProtobufCodec {
     /// Returns a Vec<u8> of an encoded StorageStatRequest for the
     /// file at `path`. Send all nested Vecs consecutively.
     pub fn create_stat_request_packet(&mut self, path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
-        if path.len() > PROTOBUF_BLE_MTU_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_BLE_MTU_SIZE).into());
-        }
-
         let stat_request = flipper_pb::storage::StatRequest {
             path: path.to_string(),
 
@@ -313,10 +301,6 @@ impl ProtobufCodec {
     /// `path` is one) should be deleted recursively. Send all nested
     /// Vecs consecutively.
     pub fn create_delete_request_packet(&mut self, path: &str, recursive: bool) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
-        if path.len() > PROTOBUF_BLE_MTU_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_BLE_MTU_SIZE).into());
-        }
-
         let delete_request = flipper_pb::storage::DeleteRequest {
             path: path.to_string(),
             recursive,
