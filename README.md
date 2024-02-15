@@ -121,7 +121,9 @@ firmware. If you're using another firmware, you're on your own.
 Most Bluetooth adapters work perfectly with the Flipper. Some are more
 temperamental than others: an operation that works perfectly on one
 might require more finagling and more connect/disconnect cycles to
-work on another. Others will only work for some operations.
+work on another. Be prepared to attempt a couple troubleshooting steps
+if you want to use multiple Flipwire commands in parallel. Others will
+only work for some operations.
 
 The least compatible adapters I've found are Intel Stone Peak
 WiFi/Bluetooth cards. The Flipper's Bluetooth implementation exhibits
