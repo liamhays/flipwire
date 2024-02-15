@@ -12,13 +12,14 @@ use crate::flipper_pb;
 
 // The flipperzero_protobuf_py example uses a chunk size of 512, which
 // absolutely doesn't work for us, because you can only write up to
-// 512 bytes to a characteristic at a time! To leave room for protobuf
-// data, we cut that down to 350 bytes.
+// 512 bytes to a characteristic at a time! (The max BLE MTU is 512
+// bytes). To leave room for protobuf data, we cut that down to 350
+// bytes, so our transmission unit size (..._TU_SIZE) is 350.
 //
 // This number also affects things like lag, and 350 is a good number
 // that seems to just work.
-//const PROTOBUF_BLE_MTU_SIZE: usize = 350;
-pub const PROTOBUF_BLE_MTU_SIZE: usize = 25;
+const PROTOBUF_BLE_TU_SIZE: usize = 350;
+//const PROTOBUF_BLE_MTU_SIZE: usize = 25;
 // number of file bytes to write per cycle
 const PROTOBUF_FILE_WRITE_CHUNK_SIZE: usize = 512;
 
@@ -107,7 +108,7 @@ impl ProtobufCodec {
 
         // if there's just one chunk, .chunks() will make just one chunk.
         let vecs: Vec<Vec<u8>> = final_vec
-            .chunks(PROTOBUF_BLE_MTU_SIZE)
+            .chunks(PROTOBUF_BLE_TU_SIZE)
             .map(|x| x.to_vec())
             .collect();
         
@@ -136,7 +137,7 @@ impl ProtobufCodec {
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
         let vecs: Vec<Vec<u8>> = final_vec
-            .chunks(PROTOBUF_BLE_MTU_SIZE)
+            .chunks(PROTOBUF_BLE_TU_SIZE)
             .map(|x| x.to_vec())
             .collect();
         
@@ -182,7 +183,7 @@ impl ProtobufCodec {
             let mut packet_vec = Vec::new();
             packet.write_length_delimited_to_vec(&mut packet_vec)?;
 
-            let vecs = packet_vec.chunks(PROTOBUF_BLE_MTU_SIZE)
+            let vecs = packet_vec.chunks(PROTOBUF_BLE_TU_SIZE)
                     .map(|x| x.to_vec())
                     .collect();
 
@@ -230,7 +231,7 @@ impl ProtobufCodec {
                 packet.write_length_delimited_to_vec(&mut packet_vec)?;
 
                 // now split into multiple Vec<u8>s for the ProtobufWriteRequestChunk
-                let vecs = packet_vec.chunks(PROTOBUF_BLE_MTU_SIZE)
+                let vecs = packet_vec.chunks(PROTOBUF_BLE_TU_SIZE)
                     .map(|x| x.to_vec())
                     .collect();
 
@@ -265,7 +266,7 @@ impl ProtobufCodec {
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
         let vecs: Vec<Vec<u8>> = final_vec
-            .chunks(PROTOBUF_BLE_MTU_SIZE)
+            .chunks(PROTOBUF_BLE_TU_SIZE)
             .map(|x| x.to_vec())
             .collect();
         
@@ -289,7 +290,7 @@ impl ProtobufCodec {
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
         let vecs: Vec<Vec<u8>> = final_vec
-            .chunks(PROTOBUF_BLE_MTU_SIZE)
+            .chunks(PROTOBUF_BLE_TU_SIZE)
             .map(|x| x.to_vec())
             .collect();
         
@@ -318,7 +319,7 @@ impl ProtobufCodec {
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
         let vecs: Vec<Vec<u8>> = final_vec
-            .chunks(PROTOBUF_BLE_MTU_SIZE)
+            .chunks(PROTOBUF_BLE_TU_SIZE)
             .map(|x| x.to_vec())
             .collect();
         
