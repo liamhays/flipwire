@@ -17,10 +17,10 @@ use crate::flipper_pb;
 //
 // This number also affects things like lag, and 350 is a good number
 // that seems to just work.
-pub const PROTOBUF_CHUNK_SIZE: usize = 350;
+pub const PROTOBUF_BLE_MTU_SIZE: usize = 350;
 
-//pub const PROTOBUF_CHUNK_SIZE: usize = 50;
-
+// number of file bytes to write per cycle
+const PROTOBUF_FILE_WRITE_CHUNK_SIZE: usize = 512;
 
 pub struct ProtobufCodec {
     // command_id is uint32 in protobuf definition
@@ -31,8 +31,9 @@ pub struct ProtobufCodec {
 pub struct ProtobufWriteRequestChunk {
     /// Number of bytes *from the file* in this chunk
     pub file_byte_count: usize,
-    /// Actual encoded protobuf packet to send over the wire
-    pub packet: Vec<u8>,
+    /// Actual encoded protobuf packets (split up by
+    /// PROTOBUF_CHUNK_SIZE as needed) to send over the wire
+    pub packets: Vec<Vec<u8>>,
 }
 
 #[allow(dead_code)]
@@ -106,7 +107,7 @@ impl ProtobufCodec {
 
         // if there's just one chunk, .chunks() will make just one chunk.
         let vecs: Vec<Vec<u8>> = final_vec
-            .chunks(PROTOBUF_CHUNK_SIZE)
+            .chunks(PROTOBUF_BLE_MTU_SIZE)
             .map(|x| x.to_vec())
             .collect();
         
@@ -123,8 +124,8 @@ impl ProtobufCodec {
     ///
     /// `path`: File to get stats about
     pub fn create_list_request_packet(&mut self, path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
-        if path.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+        if path.len() > PROTOBUF_BLE_MTU_SIZE {
+            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_BLE_MTU_SIZE).into());
         }
         
         let list_request = flipper_pb::storage::ListRequest {
@@ -139,7 +140,7 @@ impl ProtobufCodec {
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
         let vecs: Vec<Vec<u8>> = final_vec
-            .chunks(PROTOBUF_CHUNK_SIZE)
+            .chunks(PROTOBUF_BLE_MTU_SIZE)
             .map(|x| x.to_vec())
             .collect();
         
@@ -164,11 +165,6 @@ impl ProtobufCodec {
         file_data: &[u8],
         dest_path: &str) -> Result<Vec<ProtobufWriteRequestChunk>, Box<dyn Error>> {
 
-        todo!("hey you need to fix this!");
-        if dest_path.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
-        }
-
         let mut packet_stream = Vec::new();
 
         // Workaround: an empty file will cause the loop to never
@@ -190,23 +186,27 @@ impl ProtobufCodec {
             let mut packet_vec = Vec::new();
             packet.write_length_delimited_to_vec(&mut packet_vec)?;
 
-            packet_stream.push(ProtobufWriteRequestChunk {
-                // chunk size is 0
-                file_byte_count: 0,
-                packet: packet_vec,
-            });
+            let vecs = packet_vec.chunks(PROTOBUF_BLE_MTU_SIZE)
+                    .map(|x| x.to_vec())
+                    .collect();
 
+            packet_stream.push(ProtobufWriteRequestChunk {
+                file_byte_count: 0,
+                packets: vecs,
+            });
+            
         } else {
             // Every packet is the same, a WriteRequest, and the Flipper knows
             // if we have more data to send via the has_next flag.
-            for index in (0..file_data.len()).step_by(PROTOBUF_CHUNK_SIZE) {
-                let chunk = if index + PROTOBUF_CHUNK_SIZE < file_data.len() {
-                    &file_data[index..index+PROTOBUF_CHUNK_SIZE]
+            for index in (0..file_data.len()).step_by(PROTOBUF_FILE_WRITE_CHUNK_SIZE) {
+                let file_chunk = if index + PROTOBUF_FILE_WRITE_CHUNK_SIZE < file_data.len() {
+                    &file_data[index..index+PROTOBUF_FILE_WRITE_CHUNK_SIZE]
                 } else {
                     &file_data[index..]
                 };
                 
                 // make a write request packet
+
                 let mut write_request = flipper_pb::storage::WriteRequest {
                     path: dest_path.to_string(),
 
@@ -216,14 +216,14 @@ impl ProtobufCodec {
                 // There are other fields in the File struct but we don't
                 // need to worry about them.
                 let mut f = flipper_pb::storage::File::new();
-                f.data = chunk.to_vec();
+                f.data = file_chunk.to_vec();
                 write_request.file = MessageField::some(f);
 
                 // only increment the packet when we finish the full command
                 let mut packet = self.new_blank_packet(false);
                 packet.content = Some(flipper_pb::flipper::main::Content::StorageWriteRequest(write_request));
                 
-                if index + PROTOBUF_CHUNK_SIZE < file_data.len() {
+                if index + PROTOBUF_FILE_WRITE_CHUNK_SIZE < file_data.len() {
                     // has_next = true because we still have more data
                     packet.has_next = true;
                 } else {
@@ -233,10 +233,14 @@ impl ProtobufCodec {
                 let mut packet_vec = Vec::new();
                 packet.write_length_delimited_to_vec(&mut packet_vec)?;
 
+                // now split into multiple Vec<u8>s for the ProtobufWriteRequestChunk
+                let vecs = packet_vec.chunks(PROTOBUF_BLE_MTU_SIZE)
+                    .map(|x| x.to_vec())
+                    .collect();
+
                 packet_stream.push(ProtobufWriteRequestChunk {
-                    file_byte_count: chunk.len(),
-                    packet: packet_vec,
-                    
+                    file_byte_count: file_chunk.len(),
+                    packets: vecs,
                 });
             }
         }
@@ -251,8 +255,8 @@ impl ProtobufCodec {
     /// Returns a Vec<Vec<u8>> of an encoded StorageReadRequest for
     /// the file at `path`. Send all nested Vecs consecutively.
     pub fn create_read_request_packet(&mut self, path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
-        if path.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+        if path.len() > PROTOBUF_BLE_MTU_SIZE {
+            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_BLE_MTU_SIZE).into());
         }
 
         let read_request = flipper_pb::storage::ReadRequest {
@@ -269,7 +273,7 @@ impl ProtobufCodec {
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
         let vecs: Vec<Vec<u8>> = final_vec
-            .chunks(PROTOBUF_CHUNK_SIZE)
+            .chunks(PROTOBUF_BLE_MTU_SIZE)
             .map(|x| x.to_vec())
             .collect();
         
@@ -279,8 +283,8 @@ impl ProtobufCodec {
     /// Returns a Vec<u8> of an encoded StorageStatRequest for the
     /// file at `path`. Send all nested Vecs consecutively.
     pub fn create_stat_request_packet(&mut self, path: &str) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
-        if path.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+        if path.len() > PROTOBUF_BLE_MTU_SIZE {
+            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_BLE_MTU_SIZE).into());
         }
 
         let stat_request = flipper_pb::storage::StatRequest {
@@ -297,7 +301,7 @@ impl ProtobufCodec {
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
         let vecs: Vec<Vec<u8>> = final_vec
-            .chunks(PROTOBUF_CHUNK_SIZE)
+            .chunks(PROTOBUF_BLE_MTU_SIZE)
             .map(|x| x.to_vec())
             .collect();
         
@@ -309,8 +313,8 @@ impl ProtobufCodec {
     /// `path` is one) should be deleted recursively. Send all nested
     /// Vecs consecutively.
     pub fn create_delete_request_packet(&mut self, path: &str, recursive: bool) -> Result<Vec<Vec<u8>>, Box<dyn Error>> {
-        if path.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
+        if path.len() > PROTOBUF_BLE_MTU_SIZE {
+            return Err(format!("Path too long! Must be shorter than {} characters", PROTOBUF_BLE_MTU_SIZE).into());
         }
 
         let delete_request = flipper_pb::storage::DeleteRequest {
@@ -330,7 +334,7 @@ impl ProtobufCodec {
         final_msg.write_length_delimited_to_vec(&mut final_vec)?;
 
         let vecs: Vec<Vec<u8>> = final_vec
-            .chunks(PROTOBUF_CHUNK_SIZE)
+            .chunks(PROTOBUF_BLE_MTU_SIZE)
             .map(|x| x.to_vec())
             .collect();
         
@@ -493,17 +497,26 @@ mod tests {
             data.push(i as u8);
         }
 
-        let write_request_packets =
+        let write_request_chunks =
             p.create_write_request_packets(&data, "/ext/data.dat").unwrap();
 
         let mut index = 0;
-        for p in write_request_packets {
-            match ProtobufCodec::parse_response(&p.packet) {
+        for mut chunk in write_request_chunks {
+            // This test function takes a different approach than the
+            // others. We stitch up the separate Vecs for each
+            // ProtobufWriteRequestChunk and pass that to the parser,
+            // so that we can get all the data in that chunk at once
+            // but still keep file_byte_count available.
+            let mut stitched_vec = Vec::new();
+            chunk.packets.iter_mut()
+                .for_each(|x| stitched_vec.append(x));
+            
+            match ProtobufCodec::parse_response(&stitched_vec) {
                 Ok(m) => {
                     if let Some(flipper_pb::flipper::main::Content::StorageWriteRequest(r)) = m.1.content {
                         assert_eq!(1, m.1.command_id);
-                        assert_eq!(r.file.data, data[index..index+p.file_byte_count]);
-                        index += p.file_byte_count;
+                        assert_eq!(r.file.data, data[index..index+chunk.file_byte_count]);
+                        index += chunk.file_byte_count;
                     } else {
                         panic!("wrong type of protobuf message");
                     }

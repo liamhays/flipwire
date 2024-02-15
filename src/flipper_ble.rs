@@ -16,7 +16,7 @@ use std::error::Error;
 use std::convert::TryFrom;
 
 use crate::flipper_pb;
-use crate::protobuf_codec::{PROTOBUF_CHUNK_SIZE, ProtobufCodec};
+use crate::protobuf_codec::ProtobufCodec;
 
 // the uuid that we write to
 const FLIPPER_RX_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e62fe0000");
@@ -24,8 +24,12 @@ const FLIPPER_RX_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e62fe0000");
 const FLIPPER_TX_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e61fe0000");
 // flow control
 const FLIPPER_FLOW_CTRL_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e63fe0000");
-// delay used for writing chunks of a single command to a characteristic
-const FLIPPER_BLE_COMMAND_DELAY: u64 = 20;
+// Delay used for writing chunks of a single command to a
+// characteristic. 20 ms seems to work, probably because incomplete
+// pieces of a protobuf command sit in memory until they're complete,
+// so we're not waiting on storage or anything else until the command
+// is fully sent.
+const FLIPPER_BLE_PROTOBUF_CHUNK_DELAY: u64 = 20;
 
 /// Representation of a Flipper device connected over Bluetooth LE
 pub struct FlipperBle {
@@ -122,8 +126,6 @@ impl FlipperBle {
         #[cfg(target_os = "windows")]
         FlipperBle::flipper_scan(&central).await?;
 
-
-        
         let flip =
             if let Some(d) = Self::find_device_named(flipper_name, &central).await {
                 d
@@ -200,11 +202,6 @@ impl FlipperBle {
     ///           by the function.
     /// * `dest`: Full path (i.e. `/ext/apps/GPIO/app.fap`) on Flipper to upload to
     pub async fn upload_file(&mut self, file: &Path, dest: &str) -> Result<(), Box<dyn Error>> {
-        // TODO: we can chunk protobuf as much as needed, so we can chunk a packet that has a long path
-        if dest.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Destination path too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
-        }
-
         let rx_chr = self.get_rx_chr();
         let tx_chr = self.get_tx_chr();
         let flow_chr = self.get_flow_chr();
@@ -242,7 +239,14 @@ impl FlipperBle {
         // works, but it does).
         let mut pos: u64 = 0;
         for p in write_request_chunks {
-            self.flipper.write(&rx_chr, &p.packet, WriteType::WithoutResponse).await?;
+            // Write one chunk, which will be a couple of
+            // packets. These are continuous pieces of a single
+            // protobuf message, so we don't wait for a response
+            // because there won't be one.
+            for v in p.packets {
+                self.flipper.write(&rx_chr, &v, WriteType::WithoutResponse).await?;
+                time::sleep(Duration::from_millis(FLIPPER_BLE_PROTOBUF_CHUNK_DELAY)).await;
+            }
             pos += u64::try_from(p.file_byte_count)?;
             pb.set_position(pos);
             // now_or_never() evaluates and consumes the future
@@ -299,9 +303,6 @@ impl FlipperBle {
 
     // This is the main thing that doesn't work with Intel Stone Peak adapters.
     pub async fn download_file(&mut self, path: &str, dest: &Path) -> Result<(), Box<dyn Error>> {
-        /*if path.len() > PROTOBUF_CHUNK_SIZE {
-            return Err(format!("Filename too long! Must be shorter than {} characters", PROTOBUF_CHUNK_SIZE).into());
-        }*/
         let rx_chr = self.get_rx_chr();
         let tx_chr = self.get_tx_chr();
 
@@ -316,9 +317,7 @@ impl FlipperBle {
 
         for chunk in stat_request {
             self.flipper.write(&rx_chr, &chunk, WriteType::WithoutResponse).await?;
-            // 20 ms seems to work, this is all going into Flipper
-            // memory anyway so it's quick
-            time::sleep(Duration::from_millis(FLIPPER_BLE_COMMAND_DELAY)).await;
+            time::sleep(Duration::from_millis(FLIPPER_BLE_PROTOBUF_CHUNK_DELAY)).await;
         }
 
         let mut full_protobuf: Vec<u8> = Vec::new();
@@ -353,9 +352,7 @@ impl FlipperBle {
         
         for chunk in read_request {
             self.flipper.write(&rx_chr, &chunk, WriteType::WithoutResponse).await?;
-            // 20 ms seems to work, this is all going into Flipper
-            // memory anyway so it's quick
-            time::sleep(Duration::from_millis(FLIPPER_BLE_COMMAND_DELAY)).await;
+            time::sleep(Duration::from_millis(FLIPPER_BLE_PROTOBUF_CHUNK_DELAY)).await;
         }
 
         time::sleep(Duration::from_millis(200)).await;
@@ -421,9 +418,7 @@ impl FlipperBle {
         let delete_packet = self.proto.create_delete_request_packet(path, recursive)?;
         for chunk in delete_packet {
             self.flipper.write(&rx_chr, &chunk, WriteType::WithoutResponse).await?;
-            // 20 ms seems to work, this is all going into Flipper
-            // memory anyway so it's quick
-            time::sleep(Duration::from_millis(FLIPPER_BLE_COMMAND_DELAY)).await;
+            time::sleep(Duration::from_millis(FLIPPER_BLE_PROTOBUF_CHUNK_DELAY)).await;
         }
 
         let response = self.flipper.read(&tx_chr).await?;
@@ -453,8 +448,6 @@ impl FlipperBle {
         let launch_packet = self.proto.create_launch_request_packet(app, args)?;
         for chunk in launch_packet {
             self.flipper.write(&rx_chr, &chunk, WriteType::WithoutResponse).await?;
-            // 20 ms seems to work, this is all going into Flipper
-            // memory anyway so it's quick
             time::sleep(Duration::from_millis(20)).await;
         }
 
