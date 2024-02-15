@@ -425,7 +425,9 @@ impl FlipperBle {
         let pb_response = ProtobufCodec::parse_response(&response)?;
         debug!("response received: {:?}", pb_response);
 
-
+        // If the file doesn't exist, Flipper explicitly returns
+        // CommandStatus OK. See
+        // https://github.com/flipperdevices/flipperzero-firmware/blob/dev/applications/services/rpc/rpc_storage.c#L550
         if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::OK.into() {
             Ok(())
         } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_STORAGE_INVALID_NAME.into() {
@@ -465,7 +467,7 @@ impl FlipperBle {
         } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_INVALID_PARAMETERS.into() {
             Err("Application path is invalid!".into())
         } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_APP_CANT_START.into() {
-            Err("App can't start! Did you specify the path to a Flipper app?".into())
+            Err("App can't start! Did you specify the path to a Flipper app and is the app up to date?".into())
         } else if pb_response.1.command_status == flipper_pb::flipper::CommandStatus::ERROR_APP_SYSTEM_LOCKED.into() {
             Err("Another app is already running! Close it and try again.".into())
         } else {
