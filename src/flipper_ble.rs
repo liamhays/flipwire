@@ -41,6 +41,10 @@ pub struct FlipperBle {
     proto: ProtobufCodec,
 }
 
+// TODO: Flipper returns ERROR_DECODE when it gets a malformed
+// protobuf packet, then ends the RPC session. We need to watch for
+// this and take the appropriate actions.
+
 // prints a &[u8] in a style very similar to a Python bytearray
 // from https://stackoverflow.com/a/41450295
 /*use std::ascii::escape_default;
