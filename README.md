@@ -88,16 +88,27 @@ adapter is probably incompatible with the Flipper. Report your adapter
 model in a new issue and I'll add it to the list above.
 
 # Troubleshooting
+First of all, be aware of a few caveats:
+
+- Uploading is slow. I'm working on this but there isn't much
+  documentation and the Flipper RPC system is not simple.
+- Bluetooth is flaky. Expect disconnects and errors at strange times
+  that are fixed only by rebooting the Flipper, power cycling the
+  Bluetooth adapter, or both.
+
 Some common problems include Flipwire not finding the Flipper or
 returning an error. Make sure the Flipper is already paired to your
 computer.
 
-Note that on Linux, you might need to use `bluetoothctl` instead of
-your desktop environment's Bluetooth tool. For example, the KDE
-Bluetooth tool refuses to pair to the Flipper.
+On Linux, you might need to use `bluetoothctl` instead of your desktop
+environment's Bluetooth tool. For example, the KDE Bluetooth tool
+refuses to pair to the Flipper.
+
+Troubleshooting steps:
 
 - Turn Bluetooth on the Flipper off and on again.
 - Turn Bluetooth on your computer off and on again.
+- Reboot the Flipper.
 - Unpair the Flipper from your computer and pair it again.
 - Unpair all devices from the Flipper (`Settings->Bluetooth->Forget
   All Paired Devices`) and pair it to your computer again.
@@ -108,35 +119,27 @@ Bluetooth tool refuses to pair to the Flipper.
 
 This can fix issues like `Error finding Flipper Uwuw2:
 le-connection-abort-by-local`. You might also need to remove and
-re-pair.
-
-- If it's still not working, you've probably discovered a bug. Create
-  a new issue with some output with `RUST_LOG=debug` and a description
-  of the problem.
+re-pair. If it's still not working, you've probably discovered a
+bug. Create a new issue with some output with `RUST_LOG=debug` and a
+description of the problem.
 
 Flipwire is only intended for use with Flippers running official
 firmware. If you're using another firmware, you're on your own.
 
 # Adapter Incompatibility
-Most Bluetooth adapters work perfectly with the Flipper. Some are more
-temperamental than others: an operation that works perfectly on one
-might require more finagling and more connect/disconnect cycles to
-work on another. Be prepared to attempt a couple troubleshooting steps
-if you want to use multiple Flipwire commands in parallel. Others will
-only work for some operations.
-
-The least compatible adapters I've found are Intel Stone Peak
-WiFi/Bluetooth cards. The Flipper's Bluetooth implementation exhibits
-strange compatibility issues with these: the Flipper will disconnect
-while it's sending data with disconnect reason `0x08` (connection
+Most Bluetooth adapters work perfectly with the Flipper. However,
+Intel Stone Peak WiFi/Bluetooth have trouble downloading a file from
+the Flipper. The Flipper's Bluetooth implementation exhibits strange
+compatibility issues with these: the Flipper will disconnect while
+it's sending data with disconnect reason `0x08` (connection
 supervision timeout reached). This means that you can upload files,
-run small commands, and download small files without problems, but you
-can't download files bigger than about 5 kB before the Flipper
-disconnects. I have no idea why this happens (see below).
+run small commands, and sometimes download small files without
+problems, but you can't download files bigger than about 5 kB before
+the Flipper disconnects. I have no idea why this happens.
 
 If your adapter isn't one of the Stone Peak adapters listed below, and
 exhibits issues after pair/unpair and disconnect/connect cycles, open
-an issue and we'll add it to the incompatible list.
+an issue to add it to the incompatible list.
 
 ## Broken adapter list
 These are the two models in the Intel Stone Peak series. There are
