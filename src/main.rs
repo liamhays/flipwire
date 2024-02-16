@@ -29,11 +29,6 @@ enum Commands {
         /// Destination path on computer including filename
         dest: PathBuf,
     },
-    /// Recursively delete a file or directory on the Flipper
-    Rm {
-        /// Flipper file or directory to delete
-        file: String,
-    },
     /// Launch an app on the Flipper
     Launch {
         /// A full path ("/ext/apps/...") or the name of a built-in
@@ -44,12 +39,15 @@ enum Commands {
 	#[arg(default_value = "")]
 	args: String,
     },
-
-
     /// Get a file listing of a Flipper directory
     Ls {
         #[arg(default_value = "/ext")]
         path: String,
+    },
+    /// Recursively delete a file or directory on the Flipper
+    Rm {
+        /// Flipper file or directory to delete
+        file: String,
     },
 
     /// Play the Flipper's buzzing and flashing alert

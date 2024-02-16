@@ -30,10 +30,9 @@ Commands:
   picopass.fap /ext/apps/NFC/picopass.fap`.
 - `download <src> <dest>`: download a file from the Flipper to a local
   file.
-- `ul <src> <dest>`: upload a file to the Flipper (just like `upload`)
-  and attempt to launch it as an app. The file must be a `.fap`.
 - `launch <app>`: launch a `.fap` file on the Flipper.
 - `ls <dir>`: list a directory on the Flipper.
+- `rm <path>`: delete file or directory recursively.
 - `alert`: play an alert on the Flipper to help you find it.
 - `synctime`: sync the Flipper's clock to the computer's clock.
 
