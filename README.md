@@ -81,21 +81,16 @@ works.
 I don't have a macOS device to test on or to provide builds for, so
 until I do, consider Flipwire macOS support completely experimental.
 
-## Flipwire hangs during a download.
-Run through the troubleshooting steps below just in case something has
-temporarily broken. If the issue still happens, then your Bluetooth
-adapter is probably incompatible with the Flipper. Report your adapter
-model in a new issue and I'll add it to the list above.
-
-# Troubleshooting
-First of all, be aware of a few caveats:
+# Caveats
+Flipwire is not perfect software by any means. In particular:
 
 - Uploading is slow. I'm working on this but there isn't much
   documentation and the Flipper RPC system is not simple.
-- Bluetooth is flaky. Expect disconnects and errors at strange times
-  that are fixed only by rebooting the Flipper, power cycling the
-  Bluetooth adapter, or both.
+- Bluetooth is flaky, so Flipwire can be unpredictable. Expect
+  disconnects and errors at strange times that are fixed only by
+  rebooting the Flipper, power cycling the Bluetooth adapter, or both.
 
+# Troubleshooting
 Some common problems include Flipwire not finding the Flipper or
 returning an error. Make sure the Flipper is already paired to your
 computer.
@@ -184,7 +179,7 @@ Make sure you have `protoc`, the [protobuf
 compiler](https://github.com/protocolbuffers/protobuf#protobuf-compiler-installation),
 installed and in your PATH. On Linux, you also need `libdbus`
 (including the headers) and `pkg-config`. Check your package manager
-for these. 
+for these.
 
 Clone the Flipwire repo and submodules, and run `cargo build`:
 
