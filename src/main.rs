@@ -91,7 +91,6 @@ async fn main() {
     }
 
     pretty_env_logger::init();
-    debug!("start frl");
 
     let cli = Cli::parse();
     

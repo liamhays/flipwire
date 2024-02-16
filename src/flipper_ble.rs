@@ -141,7 +141,6 @@ impl FlipperBle {
                 return Err(format!("no device with name {:?} found", flipper_name).into());
             };
 
-        #[cfg(target_os = "linux")]
         if !flip.is_connected().await? {
             flip.connect().await?;
             info!("connected to Flipper {}", flipper_name);
