@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::process;
 use std::env;
 
-use tokio;
 use clap::{Parser, Subcommand};
 
 extern crate pretty_env_logger;
@@ -30,7 +29,7 @@ enum Commands {
         /// Destination path on computer including filename
         dest: PathBuf,
     },
-    /// Recursively delete a file on the Flipper
+    /// Recursively delete a file or directory on the Flipper
     Rm {
         /// Flipper file or directory to delete
         file: String,

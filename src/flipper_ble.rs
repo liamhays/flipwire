@@ -6,7 +6,6 @@ use tokio::time;
 use tokio::time::Duration;
 use uuid::{uuid, Uuid};
 use indicatif::{ProgressBar, ProgressStyle};
-use chrono;
 use chrono::TimeZone;
 
 use std::fs;
@@ -17,6 +16,11 @@ use std::convert::TryFrom;
 
 use crate::flipper_pb;
 use crate::protobuf_codec::ProtobufCodec;
+
+// Each function follows basically the same principle:
+// - Get a protobuf message from protobuf_codec
+// - Send its chunks to the Flipper's RX characteristic
+// - Wait for a response as necessary.
 
 // the uuid that we write to
 const FLIPPER_RX_CHR_UUID: Uuid = uuid!("19ed82ae-ed21-4c9d-4145-228e62fe0000");
@@ -222,8 +226,13 @@ impl FlipperBle {
 
         // The data is sent correctly but we get warnings (in the
         // Flipper log) like this every few packets:
-        // 10560 [W][BtSerialSvc] Received 245, while was ready to receive 37 bytes. Can lead to buffer overflow!
-        // Even so, it's fine.
+        // `10560 [W][BtSerialSvc] Received 245, while was ready to receive 37 bytes. Can lead to buffer overflow!`
+        // I don't like that it does this but I don't know how to fix it.
+
+        // Furthermore (there are notes on this in protobuf_codec.rs),
+        // uploads are slower than the mobile app. I don't know why
+        // this is, because the mobile app also doesn't cause the
+        // overrun warnings.
         self.flipper.subscribe(&flow_chr).await?;
         let mut stream = self.flipper.notifications().await?;
 
@@ -357,7 +366,7 @@ impl FlipperBle {
 
         time::sleep(Duration::from_millis(200)).await;
         debug!("wrote read request");
-        let pb = self.make_file_progress_bar(u64::try_from(filesize)?);
+        let pb = self.make_file_progress_bar(From::from(filesize));
 
         let mut file_pos: u64 = 0;
         full_protobuf.clear();

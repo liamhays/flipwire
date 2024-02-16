@@ -20,7 +20,14 @@ use crate::flipper_pb;
 // that seems to just work.
 const PROTOBUF_BLE_TU_SIZE: usize = 350;
 //const PROTOBUF_BLE_MTU_SIZE: usize = 25;
-// number of file bytes to write per cycle
+
+// Number of file bytes to write per cycle. Making this larger makes
+// it *seem* as though the upload is going faster, because each block
+// gets sent faster, but then you have to wait much longer at the
+// end. This happens because we're basically overrunning the Flipper
+// serial/RPC service, which means that it has to catch up later. The
+// numbers here and in upload_file() in flipper_ble.rs are carefully
+// tuned.
 const PROTOBUF_FILE_WRITE_CHUNK_SIZE: usize = 512;
 
 pub struct ProtobufCodec {
@@ -167,7 +174,8 @@ impl ProtobufCodec {
         // Workaround: an empty file will cause the loop to never
         // run. There's no easy "always iterate at least once" wrapper
         // for an iterator, so we do this instead.
-        if file_data.len() == 0 {
+        // TODO: there's gotta be a better way to do this.
+        if file_data.is_empty() {
             debug!("creating packets for empty file");
             let write_request = flipper_pb::storage::WriteRequest {
                 path: dest_path.to_string(),
