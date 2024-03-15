@@ -611,7 +611,7 @@ impl FlipperBle {
                         r.datetime.minute,
                         r.datetime.second,
                     ).unwrap();
-                    // TODO: not unwrap
+
                     info!("Flipper time skew in ms: {:?}", (now - flipper_time).num_milliseconds());
                 } else {
                     error!("received unexpected protobuf response: {:?}", m.1.content);
