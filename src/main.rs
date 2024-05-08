@@ -12,7 +12,7 @@ use clap::{Parser, Subcommand};
 extern crate pretty_env_logger;
 #[macro_use] extern crate log;
 
-// other potential operations: set datetime, play AV alert, get screen frame, 
+// other potential operations: set datetime, play AV alert, get screen frame,
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Upload a local file to the Flipper
@@ -77,6 +77,7 @@ struct Cli {
     #[arg(short)]
     disconnect: bool,
 }
+
 // TODO: we need to do something with slashes at the end of a
 // filename, since Flipper doesn't like those.
 
