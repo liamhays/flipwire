@@ -627,7 +627,7 @@ impl FlipperBle {
         now = chrono::Local::now();
         let packet = self.proto.create_set_datetime_request_packet(now.into())?;
         self.flipper.write(&rx_chr, &packet, WriteType::WithoutResponse).await?;
-        
+
         debug!("using datetime {:?}", now);
         
         Ok(())

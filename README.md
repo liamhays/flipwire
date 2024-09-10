@@ -163,6 +163,7 @@ OS-agnostic, so I don't keep track of what OS I test card on.
 - Cypress CYW43438 (on the Pi 3)
 - Broadcom BCM20702A0 external USB adapter
 - Cambridge Silicon external USB adapter
+- Mediatek MT7922
 
 # Contributing
 Like Flipwire? Leave me a star!
