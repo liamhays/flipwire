@@ -6,6 +6,8 @@ Flipwire lets you control your Flipper Zero from any computer over
 Bluetooth just like the mobile app. Flipwire is currently only a
 command-line tool.
 
+Last tested with firmware 1.3.4 (released April 22, 2025).
+
 # Usage
 Flipwire will attempt to connect to your Flipper before any
 operation. Pair your Flipper to your computer before using Flipwire so
